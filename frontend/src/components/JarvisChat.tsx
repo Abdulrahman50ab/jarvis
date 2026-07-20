@@ -572,6 +572,35 @@ export default function JarvisChat() {
     }
   }, [currentRootPath, appendLog]);
 
+  const buildWorkspaceCodebasePrompt = useCallback(async (nodes: FileNode[]): Promise<string> => {
+    let contextText = `\n\n[OPEN WORKSPACE CODEBASE SNAPSHOT]\nRoot Path: ${currentRootPath || "Local Workspace"}\n`;
+    let fileCount = 0;
+
+    const collectFiles = async (items: FileNode[]) => {
+      for (const item of items) {
+        if (item.type === "file") {
+          fileCount++;
+          let fileContent = item.content || "";
+          if (!fileContent && item.path && typeof window !== "undefined" && window.electronAPI?.readFile) {
+            try {
+              const res = await window.electronAPI.readFile(item.path);
+              if (res && res.success) fileContent = res.content;
+            } catch {}
+          }
+          if (fileContent) {
+            const truncated = fileContent.slice(0, 3500);
+            contextText += `\n--- FILE: ${item.path || item.name} ---\n${truncated}\n`;
+          }
+        } else if (item.type === "folder" && item.children) {
+          await collectFiles(item.children);
+        }
+      }
+    };
+
+    await collectFiles(nodes);
+    return contextText;
+  }, [currentRootPath]);
+
   const executeAgentToolCall = useCallback(async (toolCall: { action: string; path: string; content?: string }) => {
     const { action, path: targetPath, content = "" } = toolCall;
     let fullPath = targetPath;
@@ -598,6 +627,22 @@ export default function JarvisChat() {
         setViewMode("split");
         appendLog("action", `✓ ${action.toUpperCase()}: ${targetPath}`);
         await refreshWorkspaceTree();
+      } else if (action === "read_file") {
+        let fileContent = content;
+        if (!fileContent && typeof window !== "undefined" && window.electronAPI?.readFile) {
+          const res = await window.electronAPI.readFile(fullPath);
+          if (res && res.success) fileContent = res.content;
+        }
+        const filename = targetPath.split(/[/\\]/).pop() || targetPath;
+        const tabId = fullPath;
+        setOpenTabs((prev) => {
+          const exists = prev.find((t) => t.id === tabId || t.name === filename);
+          if (exists) return prev.map((t) => (t.id === exists.id ? { ...t, content: fileContent } : t));
+          return [...prev, { id: tabId, name: filename, path: fullPath, content: fileContent }];
+        });
+        setActiveTabId(tabId);
+        setViewMode("split");
+        appendLog("action", `✓ READ FILE: ${targetPath}`);
       } else if (action === "delete_file") {
         if (typeof window !== "undefined" && window.electronAPI?.deleteFile) {
           await window.electronAPI.deleteFile(fullPath);
@@ -629,6 +674,8 @@ export default function JarvisChat() {
     appendLog("info", `Transmitting prompt to Groq Core (${modelSettings.model})...`);
 
     const placeholderIdx = updatedMessages.length;
+    const codebaseContext = await buildWorkspaceCodebasePrompt(projectFiles);
+    const systemPromptWithCodebase = modelSettings.systemPrompt + codebaseContext;
 
     try {
       const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -644,7 +691,7 @@ export default function JarvisChat() {
           max_tokens: modelSettings.maxTokens,
           stream: true,
           messages: [
-            { role: "system", content: modelSettings.systemPrompt },
+            { role: "system", content: systemPromptWithCodebase },
             ...updatedMessages.map((msg) => ({
               role: msg.role === "assistant" ? "assistant" : msg.role,
               content: msg.content,
