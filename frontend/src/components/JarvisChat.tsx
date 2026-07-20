@@ -576,11 +576,27 @@ export default function JarvisChat() {
   const buildWorkspaceCodebasePrompt = useCallback(async (nodes: FileNode[]): Promise<string> => {
     let contextText = `\n\n[OPEN WORKSPACE CODEBASE SNAPSHOT]\nRoot Path: ${currentRootPath || "Local Workspace"}\n`;
     let fileCount = 0;
+    let totalLength = 0;
+    const MAX_TOTAL_CHARS = 12000;
+
+    const TEXT_EXTENSIONS = new Set([
+      "ts", "tsx", "js", "jsx", "json", "css", "scss", "html", "md", "py", 
+      "c", "cpp", "h", "java", "rs", "go", "sh", "yaml", "yml", "env", "txt", "toml", "xml", "svg"
+    ]);
+
+    const IGNORED_FOLDERS = new Set(["node_modules", ".git", ".next", "dist", "out", "build", ".venv", "__pycache__"]);
 
     const collectFiles = async (items: FileNode[]) => {
       for (const item of items) {
-        if (item.type === "file") {
-          fileCount++;
+        if (totalLength >= MAX_TOTAL_CHARS) break;
+
+        if (item.type === "folder") {
+          if (IGNORED_FOLDERS.has(item.name.toLowerCase())) continue;
+          if (item.children) await collectFiles(item.children);
+        } else if (item.type === "file") {
+          const ext = item.name.split(".").pop()?.toLowerCase() || "";
+          if (!TEXT_EXTENSIONS.has(ext)) continue;
+
           let fileContent = item.content || "";
           if (!fileContent && item.path && typeof window !== "undefined" && window.electronAPI?.readFile) {
             try {
@@ -588,18 +604,20 @@ export default function JarvisChat() {
               if (res && res.success) fileContent = res.content;
             } catch {}
           }
-          if (fileContent) {
-            const truncated = fileContent.slice(0, 3500);
+
+          if (fileContent && !/[\x00-\x08\x0E-\x1F]/.test(fileContent)) {
+            fileCount++;
+            const sliceLen = Math.min(2000, MAX_TOTAL_CHARS - totalLength);
+            const truncated = fileContent.slice(0, sliceLen).replace(/[\uFFFD]/g, "");
             contextText += `\n--- FILE: ${item.path || item.name} ---\n${truncated}\n`;
+            totalLength += truncated.length;
           }
-        } else if (item.type === "folder" && item.children) {
-          await collectFiles(item.children);
         }
       }
     };
 
     await collectFiles(nodes);
-    return contextText;
+    return fileCount > 0 ? contextText : "";
   }, [currentRootPath]);
 
   const executeAgentToolCall = useCallback(async (toolCall: { action: string; path: string; content?: string }) => {
@@ -1273,7 +1291,9 @@ export default function JarvisChat() {
                             </button>
                           )}
                         </div>
-                        <div className="whitespace-pre-wrap text-xs font-mono leading-relaxed">{msg.content}</div>
+                        <div className="whitespace-pre-wrap text-xs font-mono leading-relaxed">
+                          {msg.content.replace(/[\uFFFD\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")}
+                        </div>
                       </div>
                     </div>
                   ))}
