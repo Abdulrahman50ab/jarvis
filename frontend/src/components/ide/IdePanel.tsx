@@ -22,6 +22,14 @@ export default function IdePanel({
   const [command, setCommand] = useState("");
   const [ideListening, setIdeListening] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["."]));
+  const [autoApprove, setAutoApprove] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("jarvis_auto_approve") === "true";
+    }
+    return false;
+  });
+  const autoApproveRef = useRef(autoApprove);
+  autoApproveRef.current = autoApprove;
 
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -140,11 +148,18 @@ export default function IdePanel({
         appendLog({ kind: "denied", text: `Permission denied for ${data.action}` });
         break;
       case "permission":
-        setPermission({ request_id: data.request_id, action: data.action, args: data.args });
-        permReqRef.current = { request_id: data.request_id, action: data.action, args: data.args };
-        appendLog({ kind: "permission", text: `REQUEST: ${data.action}`, meta: data.args });
-        speak(`Sir, should I ${data.action.replace(/_/g, " ")}? Say yes or no.`);
-        if (!ideListening) startIdeVoice();
+        if (autoApproveRef.current) {
+          if (wsRef.current) {
+            wsRef.current.send(JSON.stringify({ type: "permission_response", request_id: data.request_id, approved: true }));
+            appendLog({ kind: "system", text: "✓ Permission auto-approved (Auto-Approve Enabled)" });
+          }
+        } else {
+          setPermission({ request_id: data.request_id, action: data.action, args: data.args });
+          permReqRef.current = { request_id: data.request_id, action: data.action, args: data.args };
+          appendLog({ kind: "permission", text: `REQUEST: ${data.action}`, meta: data.args });
+          speak(`Sir, should I ${data.action.replace(/_/g, " ")}? Say yes or no.`);
+          if (!ideListening) startIdeVoice();
+        }
         break;
       case "error":
         appendLog({ kind: "error", text: data.content });
@@ -409,6 +424,23 @@ export default function IdePanel({
               >
                 <ShieldOff className="w-4 h-4" /> Reject
               </button>
+            </div>
+            <div className="mt-3 pt-3 border-t border-[var(--accent-border)]">
+              <label className="flex items-center gap-2 cursor-pointer text-[11px] text-[var(--muted)] font-mono hover:text-[var(--accent)] transition-colors">
+                <input
+                  type="checkbox"
+                  checked={autoApprove}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAutoApprove(checked);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("jarvis_auto_approve", checked ? "true" : "false");
+                    }
+                  }}
+                  className="accent-[var(--accent)] rounded"
+                />
+                <span>Always Auto-Approve (Don't ask confirmation dialog again)</span>
+              </label>
             </div>
             <div className="text-[10px] text-[var(--muted)] text-center mt-2 font-mono">
               or just say "yes" / "no"
