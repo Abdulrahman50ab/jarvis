@@ -500,6 +500,7 @@ export default function JarvisChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const isSpeakingRef = useRef(false);
+  const isListeningRef = useRef(false);
   const isLoadingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   isLoadingRef.current = isLoading;
@@ -774,27 +775,65 @@ export default function JarvisChat() {
       rec.interimResults = true;
       rec.lang = language;
 
-      rec.onstart = () => setIsListening(true);
-      rec.onend = () => {
-        setIsListening(false);
+      rec.onstart = () => {
+        setIsListening(true);
+        isListeningRef.current = true;
       };
-      rec.onerror = (e: any) => {
-        if (e.error !== "no-speech" && e.error !== "aborted") {
+
+      rec.onend = () => {
+        if (isListeningRef.current && !isLoadingRef.current) {
+          setTimeout(() => {
+            if (isListeningRef.current) {
+              try {
+                rec.start();
+              } catch {}
+            }
+          }, 300);
+        } else {
           setIsListening(false);
         }
       };
-      rec.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0]?.transcript?.trim();
-          if (!transcript) continue;
-          if (event.results[i].isFinal) {
-            setInput(transcript);
-            handleSend(transcript);
-          } else {
-            setInput(transcript);
+
+      rec.onerror = (e: any) => {
+        if (e.error === "no-speech" || e.error === "network") {
+          if (isListeningRef.current && !isLoadingRef.current) {
+            setTimeout(() => {
+              if (isListeningRef.current) {
+                try {
+                  rec.start();
+                } catch {}
+              }
+            }, 500);
           }
+        } else if (e.error !== "aborted") {
+          console.warn("Speech error:", e.error);
         }
       };
+
+      rec.onresult = (event: any) => {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0]?.transcript || "";
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (interimTranscript) {
+          setInput(interimTranscript);
+        }
+
+        if (finalTranscript && finalTranscript.trim()) {
+          const clean = finalTranscript.trim();
+          setInput(clean);
+          handleSend(clean);
+        }
+      };
+
       recognitionRef.current = rec;
     }
   }, [handleSend, language]);
@@ -812,17 +851,21 @@ export default function JarvisChat() {
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
-      alert("Speech Recognition not supported. Try Chrome/Edge.");
+      alert("Speech Recognition not supported. Try Chrome/Edge/Electron.");
       return;
     }
-    if (isListening) {
-      recognitionRef.current.stop();
+    if (isListeningRef.current) {
+      isListeningRef.current = false;
       setIsListening(false);
+      try {
+        recognitionRef.current.stop();
+      } catch {}
     } else {
       window.speechSynthesis?.cancel();
+      isListeningRef.current = true;
+      setIsListening(true);
       try {
         recognitionRef.current.start();
-        setIsListening(true);
       } catch {}
     }
   };
