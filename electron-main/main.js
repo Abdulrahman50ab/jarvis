@@ -20,29 +20,18 @@ function createMainWindow() {
     icon: path.join(__dirname, 'icons', 'jarvis.png')
   });
 
-  const isDev = !app.isPackaged;
-  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || process.env.FRONTEND_URL;
+  const LIVE_URL = 'https://jarvis-six-pearl.vercel.app/';
+  const targetUrl = process.env.FRONTEND_URL || process.env.VERCEL_URL || LIVE_URL;
 
-  if (vercelUrl) {
-    const targetUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
-    mainWindow.loadURL(targetUrl);
-  } else if (isDev) {
-    const devUrl = 'http://localhost:3000';
-    mainWindow.loadURL(devUrl).catch(() => {
-      const indexPath = path.join(__dirname, '../frontend/out/index.html');
-      if (fs.existsSync(indexPath)) {
-        mainWindow.loadFile(indexPath);
-      }
-    });
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  } else {
+  mainWindow.loadURL(targetUrl).catch(() => {
     const indexPath = path.join(__dirname, '../frontend/out/index.html');
     if (fs.existsSync(indexPath)) {
       mainWindow.loadFile(indexPath);
-    } else {
-      const fallbackUrl = 'http://localhost:3000';
-      mainWindow.loadURL(fallbackUrl).catch(() => {});
     }
+  });
+
+  if (!app.isPackaged && process.env.OPEN_DEVTOOLS === 'true') {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
   mainWindow.webContents.on('did-fail-load', () => {
