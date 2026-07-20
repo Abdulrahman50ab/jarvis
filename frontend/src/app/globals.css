@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light mode (default) */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card-bg: #f5f5f5;
+  --card-border: #e5e5e5;
+  --sidebar-bg: #fafafa;
+  --sidebar-border: #e5e5e5;
+  --input-bg: #ffffff;
+  --input-border: #d4d4d4;
+  --muted: #6b7280;
+  --accent: #00b894;
+  --accent-hover: #00a382;
+  --accent-glow: rgba(0, 184, 148, 0.15);
+  --accent-glow-strong: rgba(0, 184, 148, 0.3);
+  --accent-border: rgba(0, 184, 148, 0.3);
+  --accent-border-strong: rgba(0, 184, 148, 0.5);
+  --accent-bg: rgba(0, 184, 148, 0.1);
+  --accent-bg-strong: rgba(0, 184, 148, 0.18);
+  --panel-bg: #f9fafb;
+  --hover-bg: rgba(0, 184, 148, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --toggle-off: #d4d4d4;
+  --overlay-bg: rgba(255, 255, 255, 0.85);
+}
+
+.dark {
+  /* Dark mode */
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card-bg: #1a1a1a;
+  --card-border: #333333;
+  --sidebar-bg: #0f0f0f;
+  --sidebar-border: #2a2a2a;
+  --input-bg: #141414;
+  --input-border: #333333;
+  --muted: #a3a3a3;
+  --accent: #00ffcc;
+  --accent-hover: #00e6b8;
+  --accent-glow: rgba(0, 255, 204, 0.15);
+  --accent-glow-strong: rgba(0, 255, 204, 0.3);
+  --accent-border: rgba(0, 255, 204, 0.2);
+  --accent-border-strong: rgba(0, 255, 204, 0.3);
+  --accent-bg: rgba(0, 255, 204, 0.08);
+  --accent-bg-strong: rgba(0, 255, 204, 0.15);
+  --panel-bg: #0c0c0c;
+  --hover-bg: rgba(0, 255, 204, 0.1);
+  --glass-bg: rgba(10, 10, 10, 0.6);
+  --toggle-off: #525252;
+  --overlay-bg: rgba(5, 5, 5, 0.85);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--jarvis-font, Arial, Helvetica, sans-serif);
+  font-size: var(--jarvis-font-size, 14px);
+  line-height: var(--jarvis-line-height, 1.6);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
