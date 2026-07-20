@@ -1,0 +1,51 @@
+{
+  "name": "jarvis-ai-os",
+  "version": "1.0.0",
+  "description": "JARVIS AI Operating System - Desktop",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "npm run build --prefix ../frontend",
+    "package-win": "electron-builder --win",
+    "package-mac": "electron-builder --mac",
+    "package-linux": "electron-builder --linux",
+    "package-all": "electron-builder -wml"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.jarvis.aios",
+    "productName": "JARVIS AI OS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icons/**/*",
+      "../frontend/out/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icons/jarvis.ico"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "icons/jarvis.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "icons/jarvis.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
