@@ -15,9 +15,9 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false
     },
-    title: 'JARVIS AI OS',
+    title: 'JARVIS IDE',
     backgroundColor: '#0a0a0a',
-    icon: path.join(__dirname, 'icons', 'jarvis.png')
+    icon: path.join(__dirname, 'icons', 'jarvis.svg')
   });
 
   const LIVE_URL = 'https://jarvis-six-pearl.vercel.app/';

@@ -3,8 +3,11 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Jarvis AI OS",
-  description: "Next-gen AI Operating System",
+  title: "JARVIS IDE - Next-Gen AI Development Environment",
+  description: "Advanced AI Operating System and Interactive IDE Panel",
+  icons: {
+    icon: "/jarvis-logo.svg",
+  },
 };
 
 export default function RootLayout({

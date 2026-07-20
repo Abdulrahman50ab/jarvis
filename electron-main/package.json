@@ -1,7 +1,7 @@
 {
-  "name": "jarvis-ai-os",
+  "name": "jarvis-ide",
   "version": "1.0.0",
-  "description": "JARVIS AI Operating System - Desktop",
+  "description": "JARVIS IDE - Next-Gen AI Development Environment",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -17,8 +17,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.jarvis.aios",
-    "productName": "JARVIS AI OS",
+    "appId": "com.jarvis.ide",
+    "productName": "JARVIS IDE",
     "directories": {
       "output": "dist"
     },
@@ -30,18 +30,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "icons/jarvis.ico"
-    },
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "icon": "icons/jarvis.icns"
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "icons/jarvis.png"
+      "icon": "icons/icon.png"
     },
     "nsis": {
       "oneClick": false,
