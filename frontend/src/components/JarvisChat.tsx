@@ -12,8 +12,6 @@ import {
   Copy,
   Settings,
   Cpu,
-  Phone,
-  PhoneOff,
   FolderOpen,
   File,
   ChevronRight,
@@ -32,6 +30,15 @@ import {
   FolderPlus,
   FilePlus,
   RefreshCw,
+  Terminal,
+  Search,
+  Play,
+  CheckCircle2,
+  AlertCircle,
+  Command,
+  GitBranch,
+  Layers,
+  Sliders,
 } from "lucide-react";
 import { useSettingsStore } from "@/lib/settings-store";
 
@@ -64,6 +71,13 @@ interface OpenTab {
   isModified?: boolean;
 }
 
+interface LogEntry {
+  id: number;
+  time: string;
+  type: "info" | "success" | "warn" | "error" | "action";
+  text: string;
+}
+
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
@@ -77,8 +91,8 @@ const LANGUAGES = [
   { code: "hi-IN", label: "Hindi", prompt: "Tum JARVIS IDE ho, ek advanced AI Coding Agent. User ko 'Sir' ya 'Ma'am' bolo. Polite, smart aur efficient tarike se jawaab do." },
   { code: "ur-PK", label: "Urdu", prompt: "Tum JARVIS IDE ho, ek advanced AI Coding Agent. User ko 'Sir' ya 'Ma'am' bolo. Polite, smart aur efficient tarike se jawaab do." },
   { code: "ar-SA", label: "Arabic", prompt: "أنت JARVIS IDE، نظام تشغيل ووكيل برمجة ذكاء اصطناعي متقدم. خاطب المستخدم بـ 'سيدي' أو 'سيدتي'." },
-  { code: "fr-FR", label: "French", prompt: "Tu es JARVIS IDE, un système d'exploitation IA et agent de développement avancé. Adresse-toi à l'utilisateur avec 'Monsieur' ou 'Madame'." },
-  { code: "es-ES", label: "Spanish", prompt: "Eres JARVIS IDE, un sistema operativo de IA y agente de código avanzado. Dirígete al usuario como 'Señor' o 'Señora'." },
+  { code: "fr-FR", label: "French", prompt: "Tu es JARVIS IDE, un système d'exploitation IA et agent de développement avancé." },
+  { code: "es-ES", label: "Spanish", prompt: "Eres JARVIS IDE, un sistema operativo de IA y agente de código avanzado." },
   { code: "de-DE", label: "German", prompt: "Du bist JARVIS IDE, ein fortschrittliches KI-Betriebssystem und Programmieragent." },
   { code: "ja-JP", label: "Japanese", prompt: "あなたはJARVIS IDE、高度なAIオペレーティングシステムおよびコーディングエージェントです。" },
   { code: "zh-CN", label: "Chinese", prompt: "你是JARVIS IDE，一个先进的AI操作系统和编程代理。" },
@@ -154,12 +168,14 @@ function FileTree({
   onSelectFile,
   onDeleteNode,
   onCreateInFolder,
+  filterQuery = "",
 }: {
   nodes: FileNode[];
   depth?: number;
   onSelectFile: (node: FileNode) => void;
   onDeleteNode: (node: FileNode) => void;
   onCreateInFolder: (folderNode: FileNode) => void;
+  filterQuery?: string;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -173,15 +189,20 @@ function FileTree({
     if (["css", "scss", "json"].includes(ext)) return "text-amber-400";
     if (["html", "md"].includes(ext)) return "text-orange-400";
     if (["py", "cpp", "c", "java"].includes(ext)) return "text-emerald-400";
-    return "text-[var(--muted)]";
+    return "text-slate-400";
   };
+
+  const filteredNodes = nodes.filter((node) => {
+    if (!filterQuery) return true;
+    return node.name.toLowerCase().includes(filterQuery.toLowerCase());
+  });
 
   return (
     <div>
-      {nodes.map((node, idx) => (
+      {filteredNodes.map((node, idx) => (
         <div key={node.path || node.name + idx}>
           <div
-            className="flex items-center justify-between py-1 px-2 hover:bg-[var(--accent-bg)] rounded cursor-pointer text-xs font-mono group transition-colors"
+            className="flex items-center justify-between py-1 px-2 hover:bg-cyan-500/10 hover:border-l-2 hover:border-cyan-400 rounded-r cursor-pointer text-xs font-mono group transition-all"
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
             onClick={() => {
               if (node.type === "folder") {
@@ -194,9 +215,9 @@ function FileTree({
             <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 pr-1">
               {node.type === "folder" ? (
                 expanded[node.name] ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                  <ChevronDown className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                  <ChevronRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 )
               ) : (
                 <FileCode className={`w-3.5 h-3.5 shrink-0 ${getFileIconColor(node.name)}`} />
@@ -204,8 +225,8 @@ function FileTree({
               <span
                 className={`truncate ${
                   node.type === "folder"
-                    ? "text-[var(--accent)] font-semibold"
-                    : "text-[var(--foreground)] group-hover:text-[var(--accent)]"
+                    ? "text-cyan-300 font-medium"
+                    : "text-slate-300 group-hover:text-cyan-300"
                 }`}
               >
                 {node.name}
@@ -220,7 +241,7 @@ function FileTree({
                     e.stopPropagation();
                     onCreateInFolder(node);
                   }}
-                  className="p-0.5 text-[var(--muted)] hover:text-emerald-400 rounded hover:bg-black/60"
+                  className="p-0.5 text-slate-400 hover:text-emerald-400 rounded hover:bg-black/60"
                   title="New File in Folder"
                 >
                   <Plus className="w-3 h-3" />
@@ -231,7 +252,7 @@ function FileTree({
                   e.stopPropagation();
                   onDeleteNode(node);
                 }}
-                className="p-0.5 text-[var(--muted)] hover:text-red-400 rounded hover:bg-black/60"
+                className="p-0.5 text-slate-400 hover:text-red-400 rounded hover:bg-black/60"
                 title={`Delete ${node.type}`}
               >
                 <Trash2 className="w-3 h-3" />
@@ -245,6 +266,7 @@ function FileTree({
               onSelectFile={onSelectFile}
               onDeleteNode={onDeleteNode}
               onCreateInFolder={onCreateInFolder}
+              filterQuery={filterQuery}
             />
           )}
         </div>
@@ -305,9 +327,9 @@ function CenterCodeViewer({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#090d16] border border-[var(--accent-border)] rounded-lg overflow-hidden m-2 shadow-2xl">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#070b14] border border-cyan-500/20 rounded-lg overflow-hidden m-2 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
       {/* Top Tabs Bar */}
-      <div className="h-10 bg-black/70 border-b border-[var(--accent-border)] flex items-center px-2 justify-between shrink-0">
+      <div className="h-10 bg-[#04070e] border-b border-cyan-500/20 flex items-center px-2 justify-between shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 mr-2">
           {openTabs.map((tab) => {
             const isActive = tab.id === activeTabId;
@@ -317,11 +339,11 @@ function CenterCodeViewer({
                 onClick={() => onSelectTab(tab.id)}
                 className={`group flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-mono cursor-pointer border-t border-x transition-all shrink-0 ${
                   isActive
-                    ? "bg-[#0d1322] border-[var(--accent)] text-[var(--accent)] shadow-[0_0_12px_rgba(0,255,204,0.15)] font-semibold"
-                    : "bg-black/40 border-transparent text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/60"
+                    ? "bg-[#0b1222] border-cyan-400 text-cyan-300 font-semibold shadow-[0_0_15px_rgba(0,255,204,0.15)]"
+                    : "bg-black/40 border-transparent text-slate-400 hover:text-slate-200 hover:bg-black/60"
                 }`}
               >
-                <FileCode className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                <FileCode className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 <span className="truncate max-w-[140px]">{tab.name}</span>
                 {tab.isModified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unsaved changes" />}
                 <button
@@ -331,7 +353,7 @@ function CenterCodeViewer({
                   }}
                   className="opacity-60 group-hover:opacity-100 hover:text-red-400 p-0.5 rounded transition-opacity"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             );
@@ -339,66 +361,66 @@ function CenterCodeViewer({
         </div>
 
         {/* View Mode Switcher */}
-        <div className="flex items-center gap-1 bg-black/60 p-1 rounded border border-[var(--accent-border)] shrink-0">
+        <div className="flex items-center gap-1 bg-black/60 p-1 rounded border border-cyan-500/20 shrink-0">
           <button
             onClick={() => setViewMode("chat")}
-            className={`p-1 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
-              viewMode === "chat" ? "bg-[var(--accent)] text-black font-bold" : "text-[var(--muted)] hover:text-[var(--accent)]"
+            className={`p-1.5 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
+              viewMode === "chat" ? "bg-cyan-400 text-black font-bold" : "text-slate-400 hover:text-cyan-400"
             }`}
             title="Full Chat View"
           >
-            <MessageSquare className="w-3 h-3" />
+            <MessageSquare className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Chat</span>
           </button>
           <button
             onClick={() => setViewMode("split")}
-            className={`p-1 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
-              viewMode === "split" ? "bg-[var(--accent)] text-black font-bold" : "text-[var(--muted)] hover:text-[var(--accent)]"
+            className={`p-1.5 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
+              viewMode === "split" ? "bg-cyan-400 text-black font-bold" : "text-slate-400 hover:text-cyan-400"
             }`}
             title="Split View (Chat & Code Side-by-Side)"
           >
-            <Split className="w-3 h-3" />
+            <Split className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Split</span>
           </button>
           <button
             onClick={() => setViewMode("code")}
-            className={`p-1 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
-              viewMode === "code" ? "bg-[var(--accent)] text-black font-bold" : "text-[var(--muted)] hover:text-[var(--accent)]"
+            className={`p-1.5 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
+              viewMode === "code" ? "bg-cyan-400 text-black font-bold" : "text-slate-400 hover:text-cyan-400"
             }`}
             title="Full Code View"
           >
-            <Code className="w-3 h-3" />
+            <Code className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Code</span>
           </button>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="h-9 px-3 bg-[#0d1322] border-b border-[var(--accent-border)] flex items-center justify-between shrink-0 text-xs font-mono">
-        <div className="flex items-center gap-3 text-[var(--muted)] truncate">
-          <span className="text-[var(--accent)] font-semibold flex items-center gap-1.5 truncate">
-            <FileCode className="w-4 h-4 text-[var(--accent)]" />
+      <div className="h-9 px-3 bg-[#0a101d] border-b border-cyan-500/20 flex items-center justify-between shrink-0 text-xs font-mono">
+        <div className="flex items-center gap-3 text-slate-400 truncate">
+          <span className="text-cyan-300 font-semibold flex items-center gap-1.5 truncate">
+            <FileCode className="w-4 h-4 text-cyan-400" />
             {activeTab.path || activeTab.name}
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-black/50 border border-[var(--accent-border)] text-cyan-300 hidden sm:inline">
+          <span className="text-[10px] px-2 py-0.5 rounded bg-black/60 border border-cyan-500/20 text-cyan-400 font-mono hidden sm:inline">
             {getLanguageLabel(activeTab.name)}
           </span>
-          <span className="text-[10px] text-emerald-400">{lineCount} Lines</span>
+          <span className="text-[10px] text-emerald-400 font-mono">{lineCount} Lines</span>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => onAskJarvis(activeTab)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--accent-bg)] hover:bg-[var(--accent-bg-strong)] border border-[var(--accent-border-strong)] text-[var(--accent)] text-[11px] font-mono transition-all"
-            title="Ask JARVIS about this code"
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono transition-all shadow-sm"
+            title="Ask JARVIS to review or explain this code"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-            <span>Ask JARVIS</span>
+            <span>Ask AI</span>
           </button>
 
           <button
             onClick={() => onSaveFile(activeTab)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 text-[11px] font-mono transition-all"
+            className="flex items-center gap-1 px-3 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 text-[11px] font-mono transition-all"
             title="Save file"
           >
             <Save className="w-3.5 h-3.5" />
@@ -407,7 +429,7 @@ function CenterCodeViewer({
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-black/40 hover:bg-black/60 border border-[var(--accent-border)] text-[var(--accent)] text-[11px] font-mono transition-all"
+            className="flex items-center gap-1 px-3 py-1 rounded bg-black/50 hover:bg-black/70 border border-cyan-500/20 text-slate-300 hover:text-cyan-300 text-[11px] font-mono transition-all"
             title="Copy code"
           >
             {copyStatus ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -417,10 +439,10 @@ function CenterCodeViewer({
       </div>
 
       {/* Code Textarea & Line Numbers */}
-      <div className="flex-1 flex min-h-0 bg-[#060911] overflow-hidden relative font-mono text-xs leading-relaxed">
-        <div className="w-12 bg-black/50 border-r border-[var(--accent-border)] text-[var(--muted)] text-right pr-2 py-3 select-none overflow-hidden font-mono text-[11px] leading-relaxed shrink-0">
+      <div className="flex-1 flex min-h-0 bg-[#050810] overflow-hidden relative font-mono text-xs leading-relaxed">
+        <div className="w-12 bg-black/60 border-r border-cyan-500/20 text-slate-500 text-right pr-2.5 py-3 select-none overflow-hidden font-mono text-[11px] leading-relaxed shrink-0">
           {lines.map((_, i) => (
-            <div key={i} className="text-gray-600 font-mono">
+            <div key={i} className="text-slate-600 font-mono hover:text-slate-400 transition-colors">
               {i + 1}
             </div>
           ))}
@@ -430,7 +452,7 @@ function CenterCodeViewer({
           value={activeTab.content}
           onChange={(e) => onContentChange(activeTab.id, e.target.value)}
           spellCheck={false}
-          className="flex-1 bg-transparent p-3 text-[var(--accent)] outline-none resize-none font-mono whitespace-pre overflow-auto leading-relaxed border-none focus:ring-0 selection:bg-[var(--accent-bg)] selection:text-white"
+          className="flex-1 bg-transparent p-3 text-cyan-300 outline-none resize-none font-mono whitespace-pre overflow-auto leading-relaxed border-none focus:ring-0 selection:bg-cyan-500/20 selection:text-white"
         />
       </div>
     </div>
@@ -446,7 +468,8 @@ export default function JarvisChat() {
   const [isMuted, setIsMuted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [continuousMode, setContinuousMode] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(true);
+  const [filterQuery, setFilterQuery] = useState("");
   const [language, setLanguage] = useState("en-US");
   const [voiceName, setVoiceName] = useState("");
   const [voiceRate, setVoiceRate] = useState(1);
@@ -455,6 +478,10 @@ export default function JarvisChat() {
   const [showFileTree, setShowFileTree] = useState(true);
   const [projectFiles, setProjectFiles] = useState<FileNode[]>([]);
   const [currentRootPath, setCurrentRootPath] = useState<string>("");
+  const [logs, setLogs] = useState<LogEntry[]>([
+    { id: 1, time: new Date().toLocaleTimeString(), type: "info", text: "JARVIS IDE Agent Core initialized." },
+    { id: 2, time: new Date().toLocaleTimeString(), type: "success", text: "Groq LLM Core (Llama-3.3 70B) online." },
+  ]);
 
   // Center Code View states
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
@@ -473,12 +500,16 @@ export default function JarvisChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const isSpeakingRef = useRef(false);
-  const continuousModeRef = useRef(false);
   const isLoadingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  continuousModeRef.current = continuousMode;
   isLoadingRef.current = isLoading;
+
+  const appendLog = useCallback((type: LogEntry["type"], text: string) => {
+    setLogs((prev) => [
+      ...prev,
+      { id: prev.length + 1, time: new Date().toLocaleTimeString(), type, text },
+    ]);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -502,17 +533,6 @@ export default function JarvisChat() {
     return () => window.speechSynthesis?.removeEventListener("voiceschanged", loadVoices);
   }, [language, voiceName]);
 
-  const restartMic = useCallback(() => {
-    if (continuousModeRef.current && recognitionRef.current && !isLoadingRef.current) {
-      setTimeout(() => {
-        try {
-          recognitionRef.current.start();
-          setIsListening(true);
-        } catch {}
-      }, 300);
-    }
-  }, []);
-
   const speakText = useCallback((text: string) => {
     if (isMuted || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -530,10 +550,9 @@ export default function JarvisChat() {
     utterance.onstart = () => { isSpeakingRef.current = true; };
     utterance.onend = () => {
       isSpeakingRef.current = false;
-      restartMic();
     };
     window.speechSynthesis.speak(utterance);
-  }, [isMuted, restartMic, language, voiceName, voiceRate, voicePitch]);
+  }, [isMuted, language, voiceName, voiceRate, voicePitch]);
 
   const refreshWorkspaceTree = useCallback(async () => {
     if (currentRootPath && typeof window !== "undefined" && window.electronAPI?.readFolderTree) {
@@ -548,9 +567,10 @@ export default function JarvisChat() {
           }));
         };
         setProjectFiles(convertTree(treeRes.tree));
+        appendLog("info", `Workspace refreshed: ${currentRootPath}`);
       }
     }
-  }, [currentRootPath]);
+  }, [currentRootPath, appendLog]);
 
   const executeAgentToolCall = useCallback(async (toolCall: { action: string; path: string; content?: string }) => {
     const { action, path: targetPath, content = "" } = toolCall;
@@ -576,23 +596,26 @@ export default function JarvisChat() {
         });
         setActiveTabId(tabId);
         setViewMode("split");
+        appendLog("action", `✓ ${action.toUpperCase()}: ${targetPath}`);
         await refreshWorkspaceTree();
       } else if (action === "delete_file") {
         if (typeof window !== "undefined" && window.electronAPI?.deleteFile) {
           await window.electronAPI.deleteFile(fullPath);
         }
         setOpenTabs((prev) => prev.filter((t) => t.id !== fullPath && t.path !== fullPath));
+        appendLog("warn", `✓ DELETED: ${targetPath}`);
         await refreshWorkspaceTree();
       } else if (action === "create_folder") {
         if (typeof window !== "undefined" && window.electronAPI?.createFolder) {
           await window.electronAPI.createFolder(fullPath);
         }
+        appendLog("action", `✓ CREATED FOLDER: ${targetPath}`);
         await refreshWorkspaceTree();
       }
-    } catch (err) {
-      console.error("Agent tool execution error:", err);
+    } catch (err: any) {
+      appendLog("error", `Tool Error [${action}]: ${err.message || err}`);
     }
-  }, [currentRootPath, refreshWorkspaceTree]);
+  }, [currentRootPath, refreshWorkspaceTree, appendLog]);
 
   const handleSend = useCallback(async (customText?: string) => {
     const textToSubmit = customText || input;
@@ -603,6 +626,7 @@ export default function JarvisChat() {
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
+    appendLog("info", `Transmitting prompt to Groq Core (${modelSettings.model})...`);
 
     const placeholderIdx = updatedMessages.length;
 
@@ -666,7 +690,7 @@ export default function JarvisChat() {
           });
         }
 
-        // Intercept and execute any AI Agent tool calls in response
+        // Intercept and execute AI Agent tool calls
         const toolCallRegex = /```json:tool_call\s*([\s\S]*?)\s*```/g;
         let match;
         while ((match = toolCallRegex.exec(accumulated)) !== null) {
@@ -680,10 +704,12 @@ export default function JarvisChat() {
           }
         }
 
+        appendLog("success", "AI Agent turn completed.");
         speakText(accumulated);
       }
     } catch (error) {
       console.error("Chat error:", error);
+      appendLog("error", "Could not establish connection to Groq AI Core.");
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "System Error: Sir, I could not establish a connection to the core." },
@@ -691,7 +717,7 @@ export default function JarvisChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, messages, modelSettings, speakText, executeAgentToolCall]);
+  }, [input, isLoading, messages, modelSettings, speakText, executeAgentToolCall, appendLog]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -704,9 +730,6 @@ export default function JarvisChat() {
       rec.onstart = () => setIsListening(true);
       rec.onend = () => {
         setIsListening(false);
-        if (continuousModeRef.current && !isSpeakingRef.current && !isLoadingRef.current) {
-          restartMic();
-        }
       };
       rec.onerror = (e: any) => {
         if (e.error !== "no-speech" && e.error !== "aborted") {
@@ -718,12 +741,8 @@ export default function JarvisChat() {
           const transcript = event.results[i][0]?.transcript?.trim();
           if (!transcript) continue;
           if (event.results[i].isFinal) {
-            if (continuousModeRef.current) {
-              handleSend(transcript);
-            } else {
-              setInput(transcript);
-              handleSend(transcript);
-            }
+            setInput(transcript);
+            handleSend(transcript);
           } else {
             setInput(transcript);
           }
@@ -731,7 +750,7 @@ export default function JarvisChat() {
       };
       recognitionRef.current = rec;
     }
-  }, [handleSend, restartMic, language]);
+  }, [handleSend, language]);
 
   const handleLanguageChange = useCallback((newLang: string) => {
     setLanguage(newLang);
@@ -751,28 +770,8 @@ export default function JarvisChat() {
     }
     if (isListening) {
       recognitionRef.current.stop();
-      setContinuousMode(false);
-    } else {
-      window.speechSynthesis?.cancel();
-      setContinuousMode(false);
-      recognitionRef.current.start();
-    }
-  };
-
-  const toggleContinuousMode = () => {
-    if (!recognitionRef.current) {
-      alert("Speech Recognition not supported. Try Chrome/Edge.");
-      return;
-    }
-
-    if (continuousMode) {
-      setContinuousMode(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
       setIsListening(false);
     } else {
-      setContinuousMode(true);
       window.speechSynthesis?.cancel();
       try {
         recognitionRef.current.start();
@@ -859,6 +858,7 @@ export default function JarvisChat() {
           setOpenTabs((prev) =>
             prev.map((t) => (t.id === tab.id ? { ...t, isModified: false } : t))
           );
+          appendLog("success", `Saved file: ${tab.name}`);
           return;
         }
       } catch (err) {
@@ -868,6 +868,7 @@ export default function JarvisChat() {
     setOpenTabs((prev) =>
       prev.map((t) => (t.id === tab.id ? { ...t, isModified: false } : t))
     );
+    appendLog("success", `Saved in session: ${tab.name}`);
   };
 
   const handleAskJarvisAboutFile = (tab: OpenTab) => {
@@ -876,7 +877,6 @@ export default function JarvisChat() {
     if (viewMode === "code") setViewMode("split");
   };
 
-  // User Actions: Create File / Create Folder / Delete Node
   const handleUserCreateFile = async (parentFolder?: string) => {
     const filePath = prompt("Enter new file path (e.g. src/components/Card.tsx):", parentFolder ? `${parentFolder}/` : "");
     if (!filePath || !filePath.trim()) return;
@@ -894,6 +894,7 @@ export default function JarvisChat() {
     setOpenTabs((prev) => [...prev, { id: fullPath, name: filename, path: fullPath, content: "" }]);
     setActiveTabId(fullPath);
     setViewMode("split");
+    appendLog("action", `Created new file: ${filename}`);
     await refreshWorkspaceTree();
   };
 
@@ -910,6 +911,7 @@ export default function JarvisChat() {
       await window.electronAPI.createFolder(fullPath);
     }
 
+    appendLog("action", `Created new folder: ${folderPath}`);
     await refreshWorkspaceTree();
   };
 
@@ -922,6 +924,7 @@ export default function JarvisChat() {
     }
 
     handleCloseTab(targetPath);
+    appendLog("warn", `Deleted ${node.type}: ${node.name}`);
     await refreshWorkspaceTree();
   };
 
@@ -943,6 +946,7 @@ export default function JarvisChat() {
           };
           setProjectFiles(convertTree(treeRes.tree));
           setShowFileTree(true);
+          appendLog("info", `Opened folder workspace: ${dirPath}`);
         }
       }
     } else {
@@ -993,521 +997,513 @@ export default function JarvisChat() {
 
     setProjectFiles(rootNodes);
     setShowFileTree(true);
+    appendLog("info", `Uploaded project folder (${files.length} files).`);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
     <div
-      className="flex h-screen bg-[var(--background)]"
+      className="flex flex-col h-screen bg-[#04070e] text-slate-200 select-none overflow-hidden"
       style={{
-        color: "var(--accent, #00ffcc)",
         fontFamily: "var(--jarvis-font, ui-monospace, SFMono-Regular, Menlo, monospace)",
-        fontSize: "var(--jarvis-font-size, 14px)",
-        lineHeight: "var(--jarvis-line-height, 1.6)",
       }}
     >
-      {/* Left Sidebar - Controls */}
-      <aside className="w-16 border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col items-center py-4 gap-2 shrink-0">
-        <div className="mb-4">
-          <Cpu className="w-7 h-7 animate-pulse text-[var(--accent)]" />
-        </div>
-
-        <button
-          onClick={newChat}
-          className="w-10 h-10 flex items-center justify-center rounded-lg border border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg)] transition-all"
-          title="New Chat"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-            isMuted ? "border-red-500/30 text-red-400 bg-red-950/10" : "border-[var(--accent-border)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"
-          }`}
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </button>
-
-        <button
-          onClick={toggleListening}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-            isListening && !continuousMode ? "border-emerald-500 bg-emerald-950/40 text-emerald-400 animate-pulse" : "border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"
-          }`}
-          title={isListening ? "Stop Mic" : "Start Mic"}
-        >
-          {isListening && !continuousMode ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-        </button>
-
-        <button
-          onClick={toggleContinuousMode}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-            continuousMode ? "border-emerald-500 bg-emerald-950/40 text-emerald-400 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.3)]" : "border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"
-          }`}
-          title={continuousMode ? "End Voice Call" : "Start Voice Call"}
-        >
-          {continuousMode ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-        </button>
-
-        <div className="w-8 border-t border-[var(--accent-border)] my-2" />
-
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
-            showSettings ? "border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"
-          }`}
-          title="Settings"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={handleOpenFolder}
-          className="w-10 h-10 flex items-center justify-center rounded-lg border border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg)] transition-all"
-          title="Open Project Folder"
-        >
-          <FolderOpen className="w-4 h-4" />
-        </button>
-        <input ref={fileInputRef} type="file" className="hidden" multiple onChange={handleFolderUpload} />
-
-        <button
-          onClick={() => setShowFileTree(!showFileTree)}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all mt-auto ${
-            showFileTree ? "border-[var(--accent)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--accent-border-strong)] text-[var(--muted)] hover:bg-[var(--accent-bg)]"
-          }`}
-          title="Toggle File Tree"
-        >
-          <File className="w-4 h-4" />
-        </button>
-      </aside>
-
-      {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
-        <header className="h-12 border-b border-[var(--accent-border)] flex items-center px-4 justify-between shrink-0 bg-[var(--card-bg)]">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold tracking-widest uppercase">JARVIS IDE</span>
-            <span className="text-xs px-2 py-0.5 rounded border border-[var(--accent-border)] bg-[var(--background)] flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-              <span className="text-[var(--muted)] font-mono uppercase tracking-widest text-[10px]">Groq Core</span>
-            </span>
-
-            <select
-              value={language}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              className="px-2 py-1 text-xs rounded border border-[var(--accent-border)] bg-[var(--background)] text-[var(--accent)] outline-none font-mono"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
+      {/* Top Professional IDE Header Bar */}
+      <header className="h-10 bg-[#070c18] border-b border-cyan-500/20 flex items-center justify-between px-3 shrink-0 text-xs font-mono">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <svg viewBox="0 0 512 512" className="w-5 h-5 animate-pulse">
+              <circle cx="256" cy="256" r="200" fill="none" stroke="#00ffcc" strokeWidth="20" opacity="0.6" />
+              <polygon points="256,156 342.6,306 169.4,306" fill="#00ffcc" />
+            </svg>
+            <span className="font-bold tracking-widest text-cyan-300 text-sm">JARVIS IDE</span>
           </div>
 
-          {/* Center View Mode Switcher Header Badge */}
-          <div className="flex items-center gap-2">
-            {openTabs.length > 0 && (
-              <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded border border-[var(--accent-border)] text-xs font-mono">
-                <FileCode className="w-3.5 h-3.5 text-[var(--accent)]" />
-                <span className="text-[var(--accent)]">{openTabs.length} open</span>
+          <span className="h-4 w-[1px] bg-cyan-500/20" />
+
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/40 border border-cyan-500/20 text-[11px]">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="text-emerald-400 font-semibold uppercase text-[10px]">Groq AI Online</span>
+          </div>
+
+          {currentRootPath && (
+            <span className="text-slate-400 text-[11px] truncate max-w-xs hidden md:inline">
+              📁 {currentRootPath}
+            </span>
+          )}
+        </div>
+
+        {/* View Mode Switcher Header Tabs */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-black/50 p-1 rounded border border-cyan-500/20">
+            <button
+              onClick={() => setViewMode("chat")}
+              className={`px-2.5 py-1 rounded text-[11px] font-mono flex items-center gap-1.5 transition-all ${
+                viewMode === "chat" ? "bg-cyan-400 text-black font-bold shadow-[0_0_10px_rgba(0,255,204,0.4)]" : "text-slate-400 hover:text-cyan-300"
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Chat View</span>
+            </button>
+            <button
+              onClick={() => setViewMode("split")}
+              className={`px-2.5 py-1 rounded text-[11px] font-mono flex items-center gap-1.5 transition-all ${
+                viewMode === "split" ? "bg-cyan-400 text-black font-bold shadow-[0_0_10px_rgba(0,255,204,0.4)]" : "text-slate-400 hover:text-cyan-300"
+              }`}
+            >
+              <Split className="w-3.5 h-3.5" />
+              <span>Split IDE</span>
+            </button>
+            <button
+              onClick={() => setViewMode("code")}
+              className={`px-2.5 py-1 rounded text-[11px] font-mono flex items-center gap-1.5 transition-all ${
+                viewMode === "code" ? "bg-cyan-400 text-black font-bold shadow-[0_0_10px_rgba(0,255,204,0.4)]" : "text-slate-400 hover:text-cyan-300"
+              }`}
+            >
+              <Code className="w-3.5 h-3.5" />
+              <span>Full Code</span>
+            </button>
+          </div>
+
+          <select
+            value={language}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+            className="px-2 py-1 text-xs rounded border border-cyan-500/20 bg-black/60 text-cyan-300 outline-none font-mono"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </header>
+
+      {/* Main Dock Container */}
+      <div className="flex-1 flex min-h-0 relative">
+        {/* Left Activity Dock Bar */}
+        <aside className="w-12 border-r border-cyan-500/20 bg-[#060a14] flex flex-col items-center py-3 gap-3 shrink-0">
+          <button
+            onClick={() => setShowFileTree(!showFileTree)}
+            className={`p-2 rounded-lg transition-all ${
+              showFileTree ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/40" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
+            }`}
+            title="Toggle File Explorer"
+          >
+            <File className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setViewMode(viewMode === "chat" ? "split" : "chat")}
+            className={`p-2 rounded-lg transition-all ${
+              viewMode === "chat" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/40" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
+            }`}
+            title="AI Chat"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setShowTerminal(!showTerminal)}
+            className={`p-2 rounded-lg transition-all ${
+              showTerminal ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/40" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
+            }`}
+            title="Toggle Agent Console & Logs"
+          >
+            <Terminal className="w-4 h-4" />
+          </button>
+
+          <div className="w-6 border-t border-cyan-500/20 my-1" />
+
+          <button
+            onClick={newChat}
+            className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-black/40 transition-all"
+            title="New Chat Session"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className={`p-2 rounded-lg transition-all ${
+              isMuted ? "text-red-400 bg-red-950/20 border border-red-500/30" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
+            }`}
+            title={isMuted ? "Unmute Voice" : "Mute Voice"}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={toggleListening}
+            className={`p-2 rounded-lg transition-all ${
+              isListening ? "text-emerald-400 bg-emerald-950/40 border border-emerald-500/40 animate-pulse" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
+            }`}
+            title={isListening ? "Stop Mic" : "Start Mic"}
+          >
+            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-2 rounded-lg transition-all mt-auto ${
+              showSettings ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/40" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
+            }`}
+            title="Settings Config"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </aside>
+
+        {/* Dynamic Center & Workspace Panels */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex min-h-0 relative">
+            {/* Left / Main AI Chat Panel */}
+            {(viewMode === "chat" || viewMode === "split") && (
+              <div className={`flex flex-col min-w-0 ${viewMode === "split" ? "w-1/2 border-r border-cyan-500/20" : "w-full"}`}>
+                <main className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#050811]">
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[88%] rounded-lg p-3.5 border ${
+                          msg.role === "user"
+                            ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-200"
+                            : "bg-[#0b1222] border-cyan-500/20 text-slate-200"
+                        } shadow-lg group relative`}
+                      >
+                        <div className="text-[11px] text-slate-400 font-mono uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-bold text-cyan-400">
+                            {msg.role === "user" ? "👤 YOU" : "🤖 JARVIS AGENT"}
+                          </span>
+                          {msg.role === "assistant" && (
+                            <button
+                              onClick={() => copyMessage(msg.content)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-black/40 rounded text-slate-400 hover:text-cyan-300"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="whitespace-pre-wrap text-xs font-mono leading-relaxed">{msg.content}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {isLoading && messages[messages.length - 1]?.content === "" && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[85%] rounded-lg p-3.5 bg-[#0b1222] border border-cyan-500/20">
+                        <div className="text-[11px] text-cyan-400 font-mono uppercase tracking-wider mb-1">JARVIS AGENT</div>
+                        <div className="flex items-center gap-2 text-xs font-mono text-cyan-300">
+                          <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                          <span>Executing autonomous workspace operations...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </main>
+
+                {/* Prompt Input Footer */}
+                <footer className="border-t border-cyan-500/20 p-3 shrink-0 bg-[#070c18]">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSend();
+                    }}
+                    className="flex gap-2 max-w-4xl mx-auto"
+                  >
+                    <input
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      placeholder={isLoading ? "Processing..." : isListening ? "Listening..." : "Instruct JARVIS to code, view, edit, create or delete files..."}
+                      disabled={isLoading}
+                      autoFocus
+                      className="flex-1 px-4 py-2.5 rounded-lg border border-cyan-500/30 bg-[#04070e] text-cyan-300 outline-none focus:border-cyan-400 font-mono text-xs placeholder-slate-500 disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading || !input.trim()}
+                      className="px-5 py-2.5 rounded-lg bg-cyan-400 text-black font-mono text-xs font-bold uppercase tracking-wider hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,255,204,0.3)]"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span className="hidden sm:inline">TRANSMIT</span>
+                    </button>
+                  </form>
+                </footer>
+              </div>
+            )}
+
+            {/* Right / Center Code Editor Window */}
+            {(viewMode === "code" || viewMode === "split") && openTabs.length > 0 && (
+              <div className={`flex flex-col min-w-0 ${viewMode === "split" ? "w-1/2" : "w-full"}`}>
+                <CenterCodeViewer
+                  openTabs={openTabs}
+                  activeTabId={activeTabId}
+                  onSelectTab={setActiveTabId}
+                  onCloseTab={handleCloseTab}
+                  onContentChange={handleContentChange}
+                  onSaveFile={handleSaveFile}
+                  onAskJarvis={handleAskJarvisAboutFile}
+                  viewMode={viewMode}
+                  setViewMode={setViewMode}
+                />
+              </div>
+            )}
+
+            {/* Empty Code State */}
+            {viewMode === "code" && openTabs.length === 0 && (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 font-mono bg-[#050810]">
+                <Code className="w-16 h-16 text-cyan-500 opacity-20 mb-4 animate-pulse" />
+                <h3 className="text-sm text-cyan-300 font-semibold mb-1">No Code File Open</h3>
+                <p className="text-xs text-slate-400 max-w-sm mb-4">
+                  Select any file from Project Explorer or ask JARVIS AI Agent to generate/edit code.
+                </p>
                 <button
-                  onClick={() => setViewMode(viewMode === "chat" ? "split" : viewMode === "split" ? "code" : "chat")}
-                  className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-bg)] text-[var(--accent)] hover:bg-[var(--accent-bg-strong)] uppercase font-bold"
+                  onClick={() => setViewMode("chat")}
+                  className="px-4 py-2 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs uppercase tracking-wider hover:bg-cyan-500/20 transition-all"
                 >
-                  {viewMode}
+                  Return to Chat
                 </button>
               </div>
             )}
-            <div className="text-xs text-[var(--muted)] font-mono hidden md:block">AUTONOMOUS AGENT ACTIVE</div>
           </div>
-        </header>
 
-        {/* Continuous Voice Link Overlay */}
-        {continuousMode && (
-          <div
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none"
-            style={{ left: "64px" }}
-          >
-            <div className="relative flex items-center justify-center mb-8">
-              <div
-                className={`absolute rounded-full border transition-all duration-700 ${
-                  isSpeakingRef.current
-                    ? "w-72 h-72 animate-ping bg-[var(--accent-bg)] border-[var(--accent-border-strong)]"
-                    : isListening
-                    ? "w-64 h-64 animate-pulse bg-emerald-500/5 border-emerald-500/20"
-                    : "w-56 h-56 border-[var(--card-border)]"
-                }`}
-              />
-              <div
-                className={`absolute rounded-full border border-dashed transition-all duration-500 ${
-                  isSpeakingRef.current
-                    ? "w-48 h-48 border-[var(--accent-border-strong)] animate-[spin_8s_linear_infinite]"
-                    : isListening
-                    ? "w-44 h-44 border-emerald-500/40 animate-[spin_12s_linear_infinite]"
-                    : "w-40 h-40 border-[var(--card-border)] animate-[spin_20s_linear_infinite]"
-                }`}
-              />
-              <div
-                className={`w-28 h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-[0_0_30px_rgba(0,255,204,0.3)] relative ${
-                  isSpeakingRef.current
-                    ? "bg-[var(--accent)] scale-110 shadow-[0_0_50px_var(--accent)]"
-                    : isLoading
-                    ? "bg-amber-500 animate-bounce shadow-[0_0_40px_#f59e0b]"
-                    : isListening
-                    ? "bg-emerald-500 scale-105 shadow-[0_0_40px_#10b981]"
-                    : "bg-[var(--card-bg)] border border-[var(--accent-border-strong)]"
-                }`}
-              >
-                <div className="w-4 h-4 rounded-full bg-white animate-ping" />
-              </div>
-            </div>
-            <div className="text-center space-y-2">
-              <p
-                className={`text-sm tracking-widest uppercase font-bold ${
-                  isSpeakingRef.current
-                    ? "text-[var(--accent)]"
-                    : isLoading
-                    ? "text-amber-400"
-                    : isListening
-                    ? "text-emerald-400"
-                    : "text-[var(--muted)]"
-                }`}
-              >
-                {isSpeakingRef.current
-                  ? "JARVIS is Speaking..."
-                  : isLoading
-                  ? "Processing..."
-                  : isListening
-                  ? "Listening..."
-                  : "Link Active"}
-              </p>
-            </div>
-            <button
-              onClick={toggleContinuousMode}
-              className="mt-12 pointer-events-auto flex items-center gap-2 px-6 py-2.5 rounded-full border border-red-500/60 bg-red-950/20 hover:bg-red-950/40 text-red-400 text-xs font-mono uppercase tracking-widest transition-all hover:scale-105"
-            >
-              <PhoneOff className="w-4 h-4 animate-pulse" />
-              <span>End Voice Link</span>
-            </button>
-          </div>
-        )}
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="absolute top-12 left-16 z-50 bg-[var(--card-bg)] border border-[var(--accent-border)] rounded-r-lg p-4 min-w-[280px] shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-mono uppercase tracking-wider text-[var(--accent)]">Config</h3>
-              <button onClick={() => setShowSettings(false)} className="text-[var(--muted)] hover:text-[var(--accent)]">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">Model</label>
-                <select
-                  value={modelSettings.model}
-                  onChange={(e) => setModelSettings({ ...modelSettings, model: e.target.value })}
-                  className="w-full px-2 py-1 text-sm rounded border border-[var(--accent-border)] bg-[var(--background)] text-[var(--accent)] outline-none"
-                >
-                  {GROQ_MODELS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">
-                  Temperature: {modelSettings.temperature.toFixed(1)}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={modelSettings.temperature}
-                  onChange={(e) => setModelSettings({ ...modelSettings, temperature: parseFloat(e.target.value) })}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">
-                  Top P: {modelSettings.topP.toFixed(1)}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={modelSettings.topP}
-                  onChange={(e) => setModelSettings({ ...modelSettings, topP: parseFloat(e.target.value) })}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">
-                  Max Tokens: {modelSettings.maxTokens}
-                </label>
-                <input
-                  type="range"
-                  min="256"
-                  max="8192"
-                  step="256"
-                  value={modelSettings.maxTokens}
-                  onChange={(e) => setModelSettings({ ...modelSettings, maxTokens: parseInt(e.target.value) })}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">System Prompt</label>
-                <textarea
-                  value={modelSettings.systemPrompt}
-                  rows={3}
-                  onChange={(e) => setModelSettings({ ...modelSettings, systemPrompt: e.target.value })}
-                  className="w-full px-2 py-1 text-xs rounded border border-[var(--accent-border)] bg-[var(--background)] text-[var(--accent)] outline-none font-mono resize-none"
-                />
+          {/* Bottom Terminal & Agent Console Drawer */}
+          {showTerminal && (
+            <div className="h-36 border-t border-cyan-500/20 bg-[#04070e] flex flex-col shrink-0 font-mono text-xs">
+              <div className="h-7 px-3 bg-[#070c18] border-b border-cyan-500/20 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="font-bold text-cyan-300 uppercase tracking-wider">Agent Console & Logs</span>
+                  <span className="text-[10px] text-emerald-400">({logs.length} events)</span>
+                </div>
+                <button onClick={() => setShowTerminal(false)} className="hover:text-red-400 transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <div className="border-t border-[var(--accent-border)] pt-3">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--accent)] mb-3">Voice</h4>
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">Voice</label>
-                <select
-                  value={voiceName}
-                  onChange={(e) => setVoiceName(e.target.value)}
-                  className="w-full px-2 py-1 text-sm rounded border border-[var(--accent-border)] bg-[var(--background)] text-[var(--accent)] outline-none max-h-32 overflow-y-auto"
-                >
-                  {availableVoices.length === 0 && <option value="">Loading...</option>}
-                  {availableVoices.map((v) => (
-                    <option key={v.name} value={v.name}>
-                      {v.name} ({v.lang})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">Speed: {voiceRate.toFixed(1)}x</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  value={voiceRate}
-                  onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] font-mono block mb-1">Pitch: {voicePitch.toFixed(1)}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={voicePitch}
-                  onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Center Dynamic Area (Chat / Split / Code) */}
-        <div className="flex-1 flex min-h-0 relative">
-          {/* Left / Main Chat View */}
-          {(viewMode === "chat" || viewMode === "split") && (
-            <div className={`flex flex-col min-w-0 ${viewMode === "split" ? "w-1/2 border-r border-[var(--accent-border)]" : "w-full"}`}>
-              {/* Messages Container */}
-              <main className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[85%] rounded-lg p-3 border ${
-                        msg.role === "user"
-                          ? "bg-[var(--accent-bg)] border-[var(--accent-border-strong)]"
-                          : "bg-[var(--card-bg)] border-[var(--card-border)]"
-                      } group relative shadow-md`}
+              <div className="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-[11px] leading-relaxed">
+                {logs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-2">
+                    <span className="text-slate-600 font-mono select-none">[{log.time}]</span>
+                    <span
+                      className={
+                        log.type === "success"
+                          ? "text-emerald-400"
+                          : log.type === "action"
+                          ? "text-cyan-300 font-bold"
+                          : log.type === "warn"
+                          ? "text-amber-400"
+                          : log.type === "error"
+                          ? "text-red-400"
+                          : "text-slate-400"
+                      }
                     >
-                      <div className="text-xs text-[var(--muted)] font-mono uppercase tracking-wider mb-1 flex items-center gap-2">
-                        <span>{msg.role === "user" ? "USER" : "JARVIS IDE"}</span>
-                        {msg.role === "assistant" && (
-                          <button
-                            onClick={() => copyMessage(msg.content)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-[var(--accent-bg)] rounded"
-                          >
-                            <Copy className="w-3 h-3 text-[var(--muted)] hover:text-[var(--accent)]" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="whitespace-pre-wrap text-sm font-mono leading-relaxed">{msg.content}</div>
-                    </div>
+                      {log.text}
+                    </span>
                   </div>
                 ))}
-                {isLoading && messages[messages.length - 1]?.content === "" && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] rounded-lg p-3 bg-[var(--card-bg)] border border-[var(--card-border)]">
-                      <div className="text-xs text-[var(--muted)] font-mono uppercase tracking-wider mb-1">JARVIS IDE</div>
-                      <div className="flex items-center gap-2 text-sm font-mono text-[var(--accent)]">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Executing workspace tool actions...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </main>
-
-              {/* Chat Input */}
-              <footer className="border-t border-[var(--accent-border)] p-3 shrink-0 bg-[var(--card-bg)]">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSend();
-                  }}
-                  className="flex gap-2 max-w-4xl mx-auto"
-                >
-                  <input
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    placeholder={isLoading ? "Processing..." : isListening ? "Listening..." : "Tell JARVIS to create, edit, view or delete files..."}
-                    disabled={isLoading}
-                    autoFocus
-                    className="flex-1 px-4 py-2.5 rounded-lg border border-[var(--accent-border-strong)] bg-[var(--background)] text-[var(--accent)] outline-none focus:border-[var(--accent)] font-mono text-sm placeholder-[var(--muted)] disabled:opacity-50"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    className="px-5 py-2.5 rounded-lg bg-[var(--accent)] text-black font-mono text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span className="hidden sm:inline">TRANSMIT</span>
-                  </button>
-                </form>
-              </footer>
-            </div>
-          )}
-
-          {/* Right / Center Code Editor Window */}
-          {(viewMode === "code" || viewMode === "split") && openTabs.length > 0 && (
-            <div className={`flex flex-col min-w-0 ${viewMode === "split" ? "w-1/2" : "w-full"}`}>
-              <CenterCodeViewer
-                openTabs={openTabs}
-                activeTabId={activeTabId}
-                onSelectTab={setActiveTabId}
-                onCloseTab={handleCloseTab}
-                onContentChange={handleContentChange}
-                onSaveFile={handleSaveFile}
-                onAskJarvis={handleAskJarvisAboutFile}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-              />
-            </div>
-          )}
-
-          {/* Empty Code State when in Code mode but no tabs open */}
-          {viewMode === "code" && openTabs.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 font-mono">
-              <Code className="w-16 h-16 text-[var(--muted)] opacity-30 mb-4" />
-              <h3 className="text-base text-[var(--accent)] font-semibold mb-1">No Code File Open</h3>
-              <p className="text-xs text-[var(--muted)] max-w-sm mb-4">
-                Select any file from the Project Explorer or tell JARVIS AI to create or edit files in the workspace.
-              </p>
-              <button
-                onClick={() => setViewMode("chat")}
-                className="px-4 py-2 rounded bg-[var(--accent-bg)] border border-[var(--accent-border-strong)] text-[var(--accent)] text-xs uppercase tracking-wider hover:bg-[var(--accent-bg-strong)] transition-all"
-              >
-                Return to Chat
-              </button>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Right Sidebar - Autonomous Workspace Explorer */}
+        {showFileTree && (
+          <aside className="w-64 border-l border-cyan-500/20 bg-[#060a14] flex flex-col shrink-0">
+            <div className="p-3 border-b border-cyan-500/20 flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider text-cyan-300 font-bold">
+                Project Explorer
+              </span>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleUserCreateFile()}
+                  className="p-1 hover:bg-cyan-500/10 rounded transition-all text-slate-400 hover:text-emerald-400"
+                  title="New File"
+                >
+                  <FilePlus className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleUserCreateFolder}
+                  className="p-1 hover:bg-cyan-500/10 rounded transition-all text-slate-400 hover:text-cyan-400"
+                  title="New Folder"
+                >
+                  <FolderPlus className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={refreshWorkspaceTree}
+                  className="p-1 hover:bg-cyan-500/10 rounded transition-all text-slate-400 hover:text-cyan-300"
+                  title="Refresh Workspace"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleOpenFolder}
+                  className="p-1 hover:bg-cyan-500/10 rounded transition-all text-slate-400 hover:text-cyan-300"
+                  title="Open Folder"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Search Box */}
+            <div className="p-2 border-b border-cyan-500/20 bg-[#04070e]">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#0b1222] border border-cyan-500/20 text-xs">
+                <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                <input
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  placeholder="Filter files..."
+                  className="w-full bg-transparent text-cyan-300 outline-none font-mono text-[11px] placeholder-slate-500"
+                />
+                {filterQuery && (
+                  <button onClick={() => setFilterQuery("")} className="text-slate-400 hover:text-cyan-300">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-1">
+              {projectFiles.length === 0 ? (
+                <div className="p-6 text-center">
+                  <FolderOpen className="w-10 h-10 mx-auto mb-2 text-cyan-500/40 opacity-40 stroke-1" />
+                  <p className="text-xs text-slate-400 font-mono font-semibold">No folder open</p>
+                  <p className="text-[10px] text-slate-500 font-mono mt-1">
+                    Open a folder or ask JARVIS AI Agent to create files.
+                  </p>
+                  <div className="flex flex-col gap-2 mt-4">
+                    <button
+                      onClick={handleOpenFolder}
+                      className="px-3 py-1.5 rounded text-[11px] font-mono bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-all"
+                    >
+                      Open Workspace
+                    </button>
+                    <button
+                      onClick={() => handleUserCreateFile()}
+                      className="px-3 py-1.5 rounded text-[11px] font-mono bg-black/40 border border-cyan-500/20 text-emerald-400 hover:bg-emerald-600/20 transition-all flex items-center justify-center gap-1"
+                    >
+                      <FilePlus className="w-3.5 h-3.5" />
+                      <span>Create New File</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <FileTree
+                  nodes={projectFiles}
+                  onSelectFile={handleSelectFile}
+                  onDeleteNode={handleUserDeleteNode}
+                  onCreateInFolder={(folderNode) => handleUserCreateFile(folderNode.path || folderNode.name)}
+                  filterQuery={filterQuery}
+                />
+              )}
+            </div>
+          </aside>
+        )}
       </div>
 
-      {/* Right Sidebar - Autonomous Workspace Explorer */}
-      {showFileTree && (
-        <aside className="w-64 border-l border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col shrink-0">
-          <div className="p-3 border-b border-[var(--accent-border)] flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-[var(--accent)] font-bold">
-              Project Explorer
-            </span>
+      {/* Bottom Professional IDE Status Bar */}
+      <footer className="h-6 bg-[#020408] border-t border-cyan-500/20 px-3 flex items-center justify-between shrink-0 text-[10px] font-mono text-slate-400">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1 text-cyan-400 font-semibold">
+            <GitBranch className="w-3 h-3" /> main
+          </span>
+          <span className="text-slate-600">|</span>
+          <span className="flex items-center gap-1 text-emerald-400">
+            <CheckCircle2 className="w-3 h-3" /> TypeScript / Next.js
+          </span>
+          <span className="text-slate-600">|</span>
+          <span className="text-slate-400">UTF-8</span>
+        </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => handleUserCreateFile()}
-                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-emerald-400"
-                title="New File"
+        <div className="flex items-center gap-3">
+          <span className="text-cyan-300">
+            {isLoading ? "⚡ JARVIS Executing Tools..." : "🟢 Agent Ready"}
+          </span>
+          <button
+            onClick={() => setShowTerminal(!showTerminal)}
+            className="hover:text-cyan-300 transition-colors flex items-center gap-1"
+          >
+            <Terminal className="w-3 h-3" /> Console
+          </button>
+        </div>
+      </footer>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="absolute top-10 left-12 z-50 bg-[#080d1a] border border-cyan-500/30 rounded-r-lg p-4 min-w-[290px] shadow-[0_0_40px_rgba(0,0,0,0.8)] font-mono text-xs">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+              <Sliders className="w-4 h-4 text-cyan-400" /> Model & System Config
+            </h3>
+            <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-cyan-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1">Model</label>
+              <select
+                value={modelSettings.model}
+                onChange={(e) => setModelSettings({ ...modelSettings, model: e.target.value })}
+                className="w-full px-2 py-1 text-xs rounded border border-cyan-500/20 bg-[#04070e] text-cyan-300 outline-none"
               >
-                <FilePlus className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={handleUserCreateFolder}
-                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-cyan-400"
-                title="New Folder"
-              >
-                <FolderPlus className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={refreshWorkspaceTree}
-                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-[var(--accent)]"
-                title="Refresh Workspace"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={handleOpenFolder}
-                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-[var(--accent)]"
-                title="Open Folder"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-              </button>
+                {GROQ_MODELS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1">
+                Temperature: {modelSettings.temperature.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={modelSettings.temperature}
+                onChange={(e) => setModelSettings({ ...modelSettings, temperature: parseFloat(e.target.value) })}
+                className="w-full accent-cyan-400"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1">
+                Max Tokens: {modelSettings.maxTokens}
+              </label>
+              <input
+                type="range"
+                min="256"
+                max="8192"
+                step="256"
+                value={modelSettings.maxTokens}
+                onChange={(e) => setModelSettings({ ...modelSettings, maxTokens: parseInt(e.target.value) })}
+                className="w-full accent-cyan-400"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1">Voice Speed: {voiceRate.toFixed(1)}x</label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={voiceRate}
+                onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
             </div>
           </div>
-
-          <div className="flex-1 overflow-y-auto p-1">
-            {projectFiles.length === 0 ? (
-              <div className="p-6 text-center">
-                <FolderOpen className="w-10 h-10 mx-auto mb-2 text-[var(--muted)] opacity-40 stroke-1" />
-                <p className="text-xs text-[var(--muted)] font-mono font-semibold">No folder open</p>
-                <p className="text-[10px] text-[var(--muted)] font-mono mt-1">
-                  Open a folder or ask JARVIS AI to create files in workspace.
-                </p>
-                <div className="flex flex-col gap-2 mt-4">
-                  <button
-                    onClick={handleOpenFolder}
-                    className="px-3 py-1.5 rounded text-[11px] font-mono bg-[var(--accent-bg)] border border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg-strong)] transition-all"
-                  >
-                    Open Workspace
-                  </button>
-                  <button
-                    onClick={() => handleUserCreateFile()}
-                    className="px-3 py-1.5 rounded text-[11px] font-mono bg-black/40 border border-[var(--accent-border)] text-emerald-400 hover:bg-emerald-600/20 transition-all flex items-center justify-center gap-1"
-                  >
-                    <FilePlus className="w-3.5 h-3.5" />
-                    <span>Create New File</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <FileTree
-                nodes={projectFiles}
-                onSelectFile={handleSelectFile}
-                onDeleteNode={handleUserDeleteNode}
-                onCreateInFolder={(folderNode) => handleUserCreateFile(folderNode.path || folderNode.name)}
-              />
-            )}
-          </div>
-        </aside>
+        </div>
       )}
     </div>
   );
