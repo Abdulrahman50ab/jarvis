@@ -56,7 +56,51 @@ ipcMain.handle('read-file', async (event, filePath) => {
 
 ipcMain.handle('write-file', async (event, filePath, content) => {
   try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.writeFileSync(filePath, content, 'utf-8');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('create-file', async (event, filePath, content = '') => {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('delete-file', async (event, targetPath) => {
+  try {
+    if (fs.existsSync(targetPath)) {
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(targetPath);
+      }
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('create-folder', async (event, dirPath) => {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };

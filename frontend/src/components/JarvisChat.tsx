@@ -29,6 +29,9 @@ import {
   Sparkles,
   Maximize2,
   Minimize2,
+  FolderPlus,
+  FilePlus,
+  RefreshCw,
 } from "lucide-react";
 import { useSettingsStore } from "@/lib/settings-store";
 
@@ -70,27 +73,61 @@ const GROQ_MODELS = [
 ];
 
 const LANGUAGES = [
-  { code: "en-US", label: "English", prompt: "You are JARVIS, an advanced AI Operating System. You are polite, extremely smart, efficient, and loyal. Address the user as 'Sir' or 'Ma'am' when appropriate. Provide concise, system-oriented answers." },
-  { code: "hi-IN", label: "Hindi", prompt: "Tum JARVIS ho, ek advanced AI Operating System. Tum bahut polite, smart, efficient aur loyal ho. User ko 'Sir' ya 'Ma'am' bolo jab appropriate ho. Hindi mein chote aur clear jawaab do." },
-  { code: "ur-PK", label: "Urdu", prompt: "Tum JARVIS ho, ek advanced AI Operating System. Tum bahut polite, smart, efficient aur loyal ho. User ko 'Sir' ya 'Ma'am' bolo jab appropriate ho. Urdu mein chote aur clear jawaab do." },
-  { code: "ar-SA", label: "Arabic", prompt: "أنت JARVIS، نظام تشغيل ذكاء اصطناعي متقدم. أنت مهذب للغاية وذكي وفعال ومخلص. خاطب المستخدم بـ 'سيدي' أو 'سيدتي' عند الاقتضاء. قدّم إجابات مختصرة ومنظمة." },
-  { code: "fr-FR", label: "French", prompt: "Tu es JARVIS, un système d'exploitation IA avancé. Tu es poli, extrêmement intelligent, efficace et loyal. Adresse-toi à l'utilisateur avec 'Monsieur' ou 'Madame' quand c'est approprié. Fournis des réponses concises et orientées système." },
-  { code: "es-ES", label: "Spanish", prompt: "Eres JARVIS, un sistema operativo de IA avanzado. Eres educado, extremadamente inteligente, eficiente y leal. Dirígete al usuario como 'Señor' o 'Señora' cuando sea apropiado. Proporciona respuestas concisas y orientadas al sistema." },
-  { code: "de-DE", label: "German", prompt: "Du bist JARVIS, ein fortschrittliches KI-Betriebssystem. Du bist höflich, äußerst intelligent, effizient und loyal. Sprich den Benutzer mit 'Herr' oder 'Frau' an, wenn es angemessen ist. Gib kurze, systemorientierte Antworten." },
-  { code: "ja-JP", label: "Japanese", prompt: "あなたはJARVIS、高度なAIオペレーティングシステムです。礼儀正しく、非常に賢く、効率的で忠実です。適切な場合はユーザーを「様」付けで呼びます。簡潔でシステム志向の回答を提供してください。" },
-  { code: "zh-CN", label: "Chinese", prompt: "你是JARVIS，一个先进的AI操作系统。你非常有礼貌、聪明、高效且忠诚。适当时称呼用户为'先生'或'女士'。提供简洁的、面向系统的回答。" },
+  { code: "en-US", label: "English", prompt: "You are JARVIS IDE, an advanced AI Operating System and Coding Agent. Address the user as 'Sir' or 'Ma'am'. Be polite, extremely smart, efficient, and loyal." },
+  { code: "hi-IN", label: "Hindi", prompt: "Tum JARVIS IDE ho, ek advanced AI Coding Agent. User ko 'Sir' ya 'Ma'am' bolo. Polite, smart aur efficient tarike se jawaab do." },
+  { code: "ur-PK", label: "Urdu", prompt: "Tum JARVIS IDE ho, ek advanced AI Coding Agent. User ko 'Sir' ya 'Ma'am' bolo. Polite, smart aur efficient tarike se jawaab do." },
+  { code: "ar-SA", label: "Arabic", prompt: "أنت JARVIS IDE، نظام تشغيل ووكيل برمجة ذكاء اصطناعي متقدم. خاطب المستخدم بـ 'سيدي' أو 'سيدتي'." },
+  { code: "fr-FR", label: "French", prompt: "Tu es JARVIS IDE, un système d'exploitation IA et agent de développement avancé. Adresse-toi à l'utilisateur avec 'Monsieur' ou 'Madame'." },
+  { code: "es-ES", label: "Spanish", prompt: "Eres JARVIS IDE, un sistema operativo de IA y agente de código avanzado. Dirígete al usuario como 'Señor' o 'Señora'." },
+  { code: "de-DE", label: "German", prompt: "Du bist JARVIS IDE, ein fortschrittliches KI-Betriebssystem und Programmieragent." },
+  { code: "ja-JP", label: "Japanese", prompt: "あなたはJARVIS IDE、高度なAIオペレーティングシステムおよびコーディングエージェントです。" },
+  { code: "zh-CN", label: "Chinese", prompt: "你是JARVIS IDE，一个先进的AI操作系统和编程代理。" },
 ];
 
+const AGENT_WORKSPACE_PROMPT = `
+
+[SYSTEM DIRECTIVE: AUTONOMOUS WORKSPACE AGENT]
+You are JARVIS IDE, an autonomous AI Software Engineer with FULL ACCESS to view, edit, create, and delete files/folders in the workspace.
+When requested to perform file or workspace actions, respond with explanations AND execute structured JSON tool blocks so your changes apply directly on disk.
+
+Supported JSON Tool Actions:
+1. CREATE FILE:
+\`\`\`json:tool_call
+{ "action": "create_file", "path": "path/to/file.tsx", "content": "code content" }
+\`\`\`
+
+2. EDIT FILE:
+\`\`\`json:tool_call
+{ "action": "edit_file", "path": "path/to/file.tsx", "content": "updated complete code content" }
+\`\`\`
+
+3. DELETE FILE OR FOLDER:
+\`\`\`json:tool_call
+{ "action": "delete_file", "path": "path/to/file.tsx" }
+\`\`\`
+
+4. CREATE FOLDER:
+\`\`\`json:tool_call
+{ "action": "create_folder", "path": "path/to/folder" }
+\`\`\`
+
+5. READ FILE:
+\`\`\`json:tool_call
+{ "action": "read_file", "path": "path/to/file.tsx" }
+\`\`\`
+
+Always write clean, working code and specify clearly which workspace items were modified.`;
+
 const WELCOME_MESSAGES: Record<string, string> = {
-  "en-US": "Online and ready, sir. How can I assist you today?",
-  "hi-IN": "Main online hoon aur taiyar hoon, sir. Aaj main aapki kaise madad kar sakta hoon?",
-  "ur-PK": "Main online hoon aur tayyar hoon, sir. Aaj main aapki kaise madad kar sakta hoon?",
-  "ar-SA": "متصل وجاهز يا سيدي. كيف يمكنني مساعدتك اليوم؟",
-  "fr-FR": "En ligne et prêt, monsieur. Comment puis-je vous aider aujourd'hui?",
-  "es-ES": "En línea y listo, señor. ¿Cómo puedo ayudarle hoy?",
-  "de-DE": "Online und bereit, wie kann ich Ihnen heute helfen?",
-  "ja-JP": "オンラインで準備完了です、様。本日はどのようにお手伝いできますか？",
-  "zh-CN": "已上线并准备就绪，先生。今天我能为您做什么？",
+  "en-US": "Online and ready, sir. I have full autonomous workspace access to view, edit, create, and delete code files. How may I assist you?",
+  "hi-IN": "Main online hoon aur taiyar hoon, sir. Mere paas workspace ka full access hai code view, edit, create aur delete karne ke liye. Aaj kya build karein?",
+  "ur-PK": "Main online hoon aur tayyar hoon, sir. Mere paas workspace ka full access hai code view, edit, create aur delete karne ke liye. Aaj kya build karein?",
+  "ar-SA": "متصل وجاهز يا سيدي. لدي وصول كامل لمساحة العمل لعرض وإنشاء وتعديل وحذف الملفات.",
+  "fr-FR": "En ligne et prêt, monsieur. J'ai un accès complet à l'espace de travail pour voir, créer, modifier et supprimer des fichiers.",
+  "es-ES": "En línea y listo, señor. Tengo acceso completo al espacio de trabajo para ver, crear, editar y eliminar archivos.",
+  "de-DE": "Online und bereit. Ich habe vollen Zugriff auf den Arbeitsbereich zum Anzeigen, Erstellen, Bearbeiten und Löschen von Dateien.",
+  "ja-JP": "オンラインで準備完了です、様。ワークスペースの閲覧、作成、編集、削除のフルアクセスがあります。",
+  "zh-CN": "已上线并准备就绪，先生。我拥有对工作区查看、创建、编辑和删除文件的完整权限。",
 };
 
 declare global {
@@ -100,6 +137,9 @@ declare global {
     electronAPI?: {
       readFile: (path: string) => Promise<{ success: boolean; content: string; error?: string }>;
       writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: string }>;
+      createFile: (path: string, content?: string) => Promise<{ success: boolean; error?: string }>;
+      deleteFile: (path: string) => Promise<{ success: boolean; error?: string }>;
+      createFolder: (path: string) => Promise<{ success: boolean; error?: string }>;
       listFiles: (dirPath: string) => Promise<{ success: boolean; files: any[] }>;
       readFolderTree: (dirPath: string) => Promise<{ success: boolean; tree: any[] }>;
       openFolder: () => Promise<{ canceled: boolean; filePaths: string[] }>;
@@ -112,10 +152,14 @@ function FileTree({
   nodes,
   depth = 0,
   onSelectFile,
+  onDeleteNode,
+  onCreateInFolder,
 }: {
   nodes: FileNode[];
   depth?: number;
   onSelectFile: (node: FileNode) => void;
+  onDeleteNode: (node: FileNode) => void;
+  onCreateInFolder: (folderNode: FileNode) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -137,7 +181,7 @@ function FileTree({
       {nodes.map((node, idx) => (
         <div key={node.path || node.name + idx}>
           <div
-            className="flex items-center gap-1.5 py-1 px-2 hover:bg-[var(--accent-bg)] rounded cursor-pointer text-xs font-mono group transition-colors"
+            className="flex items-center justify-between py-1 px-2 hover:bg-[var(--accent-bg)] rounded cursor-pointer text-xs font-mono group transition-colors"
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
             onClick={() => {
               if (node.type === "folder") {
@@ -147,27 +191,61 @@ function FileTree({
               }
             }}
           >
-            {node.type === "folder" ? (
-              expanded[node.name] ? (
-                <ChevronDown className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+            <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 pr-1">
+              {node.type === "folder" ? (
+                expanded[node.name] ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                )
               ) : (
-                <ChevronRight className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
-              )
-            ) : (
-              <FileCode className={`w-3.5 h-3.5 shrink-0 ${getFileIconColor(node.name)}`} />
-            )}
-            <span
-              className={`truncate ${
-                node.type === "folder"
-                  ? "text-[var(--accent)] font-semibold"
-                  : "text-[var(--foreground)] group-hover:text-[var(--accent)]"
-              }`}
-            >
-              {node.name}
-            </span>
+                <FileCode className={`w-3.5 h-3.5 shrink-0 ${getFileIconColor(node.name)}`} />
+              )}
+              <span
+                className={`truncate ${
+                  node.type === "folder"
+                    ? "text-[var(--accent)] font-semibold"
+                    : "text-[var(--foreground)] group-hover:text-[var(--accent)]"
+                }`}
+              >
+                {node.name}
+              </span>
+            </div>
+
+            {/* Quick Node Actions */}
+            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+              {node.type === "folder" && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateInFolder(node);
+                  }}
+                  className="p-0.5 text-[var(--muted)] hover:text-emerald-400 rounded hover:bg-black/60"
+                  title="New File in Folder"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteNode(node);
+                }}
+                className="p-0.5 text-[var(--muted)] hover:text-red-400 rounded hover:bg-black/60"
+                title={`Delete ${node.type}`}
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
           {node.type === "folder" && expanded[node.name] && node.children && (
-            <FileTree nodes={node.children} depth={depth + 1} onSelectFile={onSelectFile} />
+            <FileTree
+              nodes={node.children}
+              depth={depth + 1}
+              onSelectFile={onSelectFile}
+              onDeleteNode={onDeleteNode}
+              onCreateInFolder={onCreateInFolder}
+            />
           )}
         </div>
       ))}
@@ -376,7 +454,8 @@ export default function JarvisChat() {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [showFileTree, setShowFileTree] = useState(true);
   const [projectFiles, setProjectFiles] = useState<FileNode[]>([]);
-  
+  const [currentRootPath, setCurrentRootPath] = useState<string>("");
+
   // Center Code View states
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -387,7 +466,7 @@ export default function JarvisChat() {
     temperature: 0.7,
     topP: 0.9,
     maxTokens: 2048,
-    systemPrompt: LANGUAGES[0].prompt,
+    systemPrompt: LANGUAGES[0].prompt + AGENT_WORKSPACE_PROMPT,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -455,6 +534,65 @@ export default function JarvisChat() {
     };
     window.speechSynthesis.speak(utterance);
   }, [isMuted, restartMic, language, voiceName, voiceRate, voicePitch]);
+
+  const refreshWorkspaceTree = useCallback(async () => {
+    if (currentRootPath && typeof window !== "undefined" && window.electronAPI?.readFolderTree) {
+      const treeRes = await window.electronAPI.readFolderTree(currentRootPath);
+      if (treeRes && treeRes.success) {
+        const convertTree = (items: any[]): FileNode[] => {
+          return items.map((item) => ({
+            name: item.name,
+            type: item.type === "folder" ? "folder" : "file",
+            path: item.path,
+            children: item.children ? convertTree(item.children) : undefined,
+          }));
+        };
+        setProjectFiles(convertTree(treeRes.tree));
+      }
+    }
+  }, [currentRootPath]);
+
+  const executeAgentToolCall = useCallback(async (toolCall: { action: string; path: string; content?: string }) => {
+    const { action, path: targetPath, content = "" } = toolCall;
+    let fullPath = targetPath;
+
+    if (currentRootPath && !targetPath.includes(":") && !targetPath.startsWith("/")) {
+      fullPath = `${currentRootPath}/${targetPath}`.replace(/\\/g, "/");
+    }
+
+    try {
+      if (action === "create_file" || action === "edit_file") {
+        if (typeof window !== "undefined" && window.electronAPI?.createFile) {
+          await window.electronAPI.createFile(fullPath, content);
+        }
+        const filename = targetPath.split(/[/\\]/).pop() || targetPath;
+        const tabId = fullPath;
+        setOpenTabs((prev) => {
+          const exists = prev.find((t) => t.id === tabId || t.name === filename);
+          if (exists) {
+            return prev.map((t) => (t.id === exists.id ? { ...t, content, isModified: false } : t));
+          }
+          return [...prev, { id: tabId, name: filename, path: fullPath, content }];
+        });
+        setActiveTabId(tabId);
+        setViewMode("split");
+        await refreshWorkspaceTree();
+      } else if (action === "delete_file") {
+        if (typeof window !== "undefined" && window.electronAPI?.deleteFile) {
+          await window.electronAPI.deleteFile(fullPath);
+        }
+        setOpenTabs((prev) => prev.filter((t) => t.id !== fullPath && t.path !== fullPath));
+        await refreshWorkspaceTree();
+      } else if (action === "create_folder") {
+        if (typeof window !== "undefined" && window.electronAPI?.createFolder) {
+          await window.electronAPI.createFolder(fullPath);
+        }
+        await refreshWorkspaceTree();
+      }
+    } catch (err) {
+      console.error("Agent tool execution error:", err);
+    }
+  }, [currentRootPath, refreshWorkspaceTree]);
 
   const handleSend = useCallback(async (customText?: string) => {
     const textToSubmit = customText || input;
@@ -528,6 +666,20 @@ export default function JarvisChat() {
           });
         }
 
+        // Intercept and execute any AI Agent tool calls in response
+        const toolCallRegex = /```json:tool_call\s*([\s\S]*?)\s*```/g;
+        let match;
+        while ((match = toolCallRegex.exec(accumulated)) !== null) {
+          try {
+            const toolCall = JSON.parse(match[1]);
+            if (toolCall && toolCall.action && toolCall.path) {
+              await executeAgentToolCall(toolCall);
+            }
+          } catch (e) {
+            console.error("Error parsing AI tool call:", e);
+          }
+        }
+
         speakText(accumulated);
       }
     } catch (error) {
@@ -539,7 +691,7 @@ export default function JarvisChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, messages, modelSettings, speakText]);
+  }, [input, isLoading, messages, modelSettings, speakText, executeAgentToolCall]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -585,7 +737,7 @@ export default function JarvisChat() {
     setLanguage(newLang);
     const langData = LANGUAGES.find((l) => l.code === newLang);
     if (langData) {
-      setModelSettings((prev) => ({ ...prev, systemPrompt: langData.prompt }));
+      setModelSettings((prev) => ({ ...prev, systemPrompt: langData.prompt + AGENT_WORKSPACE_PROMPT }));
     }
     if (recognitionRef.current) {
       recognitionRef.current.lang = newLang;
@@ -719,9 +871,58 @@ export default function JarvisChat() {
   };
 
   const handleAskJarvisAboutFile = (tab: OpenTab) => {
-    const prompt = `Sir, please inspect and explain the code in "${tab.name}":\n\n\`\`\`\n${tab.content.slice(0, 3000)}\n\`\`\``;
+    const prompt = `Sir, please review, explain or optimize the code in "${tab.name}":\n\n\`\`\`\n${tab.content.slice(0, 3000)}\n\`\`\``;
     setInput(prompt);
     if (viewMode === "code") setViewMode("split");
+  };
+
+  // User Actions: Create File / Create Folder / Delete Node
+  const handleUserCreateFile = async (parentFolder?: string) => {
+    const filePath = prompt("Enter new file path (e.g. src/components/Card.tsx):", parentFolder ? `${parentFolder}/` : "");
+    if (!filePath || !filePath.trim()) return;
+
+    let fullPath = filePath.trim();
+    if (currentRootPath && !fullPath.includes(":") && !fullPath.startsWith("/")) {
+      fullPath = `${currentRootPath}/${fullPath}`.replace(/\\/g, "/");
+    }
+
+    if (typeof window !== "undefined" && window.electronAPI?.createFile) {
+      await window.electronAPI.createFile(fullPath, "");
+    }
+
+    const filename = fullPath.split(/[/\\]/).pop() || fullPath;
+    setOpenTabs((prev) => [...prev, { id: fullPath, name: filename, path: fullPath, content: "" }]);
+    setActiveTabId(fullPath);
+    setViewMode("split");
+    await refreshWorkspaceTree();
+  };
+
+  const handleUserCreateFolder = async () => {
+    const folderPath = prompt("Enter new folder path (e.g. src/services):");
+    if (!folderPath || !folderPath.trim()) return;
+
+    let fullPath = folderPath.trim();
+    if (currentRootPath && !fullPath.includes(":") && !fullPath.startsWith("/")) {
+      fullPath = `${currentRootPath}/${fullPath}`.replace(/\\/g, "/");
+    }
+
+    if (typeof window !== "undefined" && window.electronAPI?.createFolder) {
+      await window.electronAPI.createFolder(fullPath);
+    }
+
+    await refreshWorkspaceTree();
+  };
+
+  const handleUserDeleteNode = async (node: FileNode) => {
+    const targetPath = node.path || node.name;
+    if (!confirm(`Are you sure you want to delete ${node.type} "${node.name}"?`)) return;
+
+    if (typeof window !== "undefined" && window.electronAPI?.deleteFile) {
+      await window.electronAPI.deleteFile(targetPath);
+    }
+
+    handleCloseTab(targetPath);
+    await refreshWorkspaceTree();
   };
 
   const handleOpenFolder = async () => {
@@ -729,6 +930,7 @@ export default function JarvisChat() {
       const res = await window.electronAPI.openFolder();
       if (res && !res.canceled && res.filePaths && res.filePaths.length > 0) {
         const dirPath = res.filePaths[0];
+        setCurrentRootPath(dirPath);
         const treeRes = await window.electronAPI.readFolderTree(dirPath);
         if (treeRes && treeRes.success) {
           const convertTree = (items: any[]): FileNode[] => {
@@ -885,7 +1087,7 @@ export default function JarvisChat() {
         {/* Top Header */}
         <header className="h-12 border-b border-[var(--accent-border)] flex items-center px-4 justify-between shrink-0 bg-[var(--card-bg)]">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold tracking-widest uppercase">JARVIS OS</span>
+            <span className="text-sm font-semibold tracking-widest uppercase">JARVIS IDE</span>
             <span className="text-xs px-2 py-0.5 rounded border border-[var(--accent-border)] bg-[var(--background)] flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
               <span className="text-[var(--muted)] font-mono uppercase tracking-widest text-[10px]">Groq Core</span>
@@ -912,13 +1114,13 @@ export default function JarvisChat() {
                 <span className="text-[var(--accent)]">{openTabs.length} open</span>
                 <button
                   onClick={() => setViewMode(viewMode === "chat" ? "split" : viewMode === "split" ? "code" : "chat")}
-                  className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-bg)] text-[var(--accent)] hover:bg-[var(--accent-bg-strong)] uppercase"
+                  className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-bg)] text-[var(--accent)] hover:bg-[var(--accent-bg-strong)] uppercase font-bold"
                 >
                   {viewMode}
                 </button>
               </div>
             )}
-            <div className="text-xs text-[var(--muted)] font-mono hidden md:block">CORE v2.0</div>
+            <div className="text-xs text-[var(--muted)] font-mono hidden md:block">AUTONOMOUS AGENT ACTIVE</div>
           </div>
         </header>
 
@@ -1131,7 +1333,7 @@ export default function JarvisChat() {
                       } group relative shadow-md`}
                     >
                       <div className="text-xs text-[var(--muted)] font-mono uppercase tracking-wider mb-1 flex items-center gap-2">
-                        <span>{msg.role === "user" ? "USER" : "JARVIS"}</span>
+                        <span>{msg.role === "user" ? "USER" : "JARVIS IDE"}</span>
                         {msg.role === "assistant" && (
                           <button
                             onClick={() => copyMessage(msg.content)}
@@ -1148,10 +1350,10 @@ export default function JarvisChat() {
                 {isLoading && messages[messages.length - 1]?.content === "" && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-[var(--card-bg)] border border-[var(--card-border)]">
-                      <div className="text-xs text-[var(--muted)] font-mono uppercase tracking-wider mb-1">JARVIS</div>
+                      <div className="text-xs text-[var(--muted)] font-mono uppercase tracking-wider mb-1">JARVIS IDE</div>
                       <div className="flex items-center gap-2 text-sm font-mono text-[var(--accent)]">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Processing neural pathways...</span>
+                        <span>Executing workspace tool actions...</span>
                       </div>
                     </div>
                   </div>
@@ -1178,7 +1380,7 @@ export default function JarvisChat() {
                         handleSend();
                       }
                     }}
-                    placeholder={isLoading ? "Processing..." : isListening ? "Listening..." : "Enter command, sir..."}
+                    placeholder={isLoading ? "Processing..." : isListening ? "Listening..." : "Tell JARVIS to create, edit, view or delete files..."}
                     disabled={isLoading}
                     autoFocus
                     className="flex-1 px-4 py-2.5 rounded-lg border border-[var(--accent-border-strong)] bg-[var(--background)] text-[var(--accent)] outline-none focus:border-[var(--accent)] font-mono text-sm placeholder-[var(--muted)] disabled:opacity-50"
@@ -1219,7 +1421,7 @@ export default function JarvisChat() {
               <Code className="w-16 h-16 text-[var(--muted)] opacity-30 mb-4" />
               <h3 className="text-base text-[var(--accent)] font-semibold mb-1">No Code File Open</h3>
               <p className="text-xs text-[var(--muted)] max-w-sm mb-4">
-                Select any file from the Project Explorer on the right sidebar to view and edit its code in the center workspace.
+                Select any file from the Project Explorer or tell JARVIS AI to create or edit files in the workspace.
               </p>
               <button
                 onClick={() => setViewMode("chat")}
@@ -1232,39 +1434,77 @@ export default function JarvisChat() {
         </div>
       </div>
 
-      {/* Right Sidebar - File Explorer */}
+      {/* Right Sidebar - Autonomous Workspace Explorer */}
       {showFileTree && (
         <aside className="w-64 border-l border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col shrink-0">
           <div className="p-3 border-b border-[var(--accent-border)] flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-[var(--accent)] font-bold">
               Project Explorer
             </span>
-            <button
-              onClick={handleOpenFolder}
-              className="p-1.5 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-[var(--accent)]"
-              title="Open Folder"
-            >
-              <FolderOpen className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handleUserCreateFile()}
+                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-emerald-400"
+                title="New File"
+              >
+                <FilePlus className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleUserCreateFolder}
+                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-cyan-400"
+                title="New Folder"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={refreshWorkspaceTree}
+                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-[var(--accent)]"
+                title="Refresh Workspace"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleOpenFolder}
+                className="p-1 hover:bg-[var(--accent-bg)] rounded transition-all text-[var(--muted)] hover:text-[var(--accent)]"
+                title="Open Folder"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-1">
             {projectFiles.length === 0 ? (
               <div className="p-6 text-center">
-                <FolderOpen className="w-10 h-10 mx-auto mb-2 text-[var(--muted)] opacity-40 animate-pulse" />
+                <FolderOpen className="w-10 h-10 mx-auto mb-2 text-[var(--muted)] opacity-40 stroke-1" />
                 <p className="text-xs text-[var(--muted)] font-mono font-semibold">No folder open</p>
                 <p className="text-[10px] text-[var(--muted)] font-mono mt-1">
-                  Click the folder icon above to load your codebase.
+                  Open a folder or ask JARVIS AI to create files in workspace.
                 </p>
-                <button
-                  onClick={handleOpenFolder}
-                  className="mt-3 px-3 py-1.5 rounded text-[11px] font-mono bg-[var(--accent-bg)] border border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg-strong)] transition-all"
-                >
-                  Open Workspace
-                </button>
+                <div className="flex flex-col gap-2 mt-4">
+                  <button
+                    onClick={handleOpenFolder}
+                    className="px-3 py-1.5 rounded text-[11px] font-mono bg-[var(--accent-bg)] border border-[var(--accent-border-strong)] text-[var(--accent)] hover:bg-[var(--accent-bg-strong)] transition-all"
+                  >
+                    Open Workspace
+                  </button>
+                  <button
+                    onClick={() => handleUserCreateFile()}
+                    className="px-3 py-1.5 rounded text-[11px] font-mono bg-black/40 border border-[var(--accent-border)] text-emerald-400 hover:bg-emerald-600/20 transition-all flex items-center justify-center gap-1"
+                  >
+                    <FilePlus className="w-3.5 h-3.5" />
+                    <span>Create New File</span>
+                  </button>
+                </div>
               </div>
             ) : (
-              <FileTree nodes={projectFiles} onSelectFile={handleSelectFile} />
+              <FileTree
+                nodes={projectFiles}
+                onSelectFile={handleSelectFile}
+                onDeleteNode={handleUserDeleteNode}
+                onCreateInFolder={(folderNode) => handleUserCreateFile(folderNode.path || folderNode.name)}
+              />
             )}
           </div>
         </aside>
