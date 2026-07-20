@@ -785,6 +785,11 @@ export default function JarvisChat() {
     }
   }, [input, isLoading, messages, modelSettings, speakText, executeAgentToolCall, appendLog]);
 
+  const handleSendRef = useRef(handleSend);
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -829,32 +834,32 @@ export default function JarvisChat() {
       };
 
       rec.onresult = (event: any) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
+        let fullText = "";
+        let isFinal = false;
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0]?.transcript || "";
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
+        for (let i = 0; i < event.results.length; i++) {
+          const item = event.results[i];
+          if (item && item[0]) {
+            fullText += item[0].transcript;
+            if (item.isFinal) {
+              isFinal = true;
+            }
           }
         }
 
-        if (interimTranscript) {
-          setInput(interimTranscript);
-        }
-
-        if (finalTranscript && finalTranscript.trim()) {
-          const clean = finalTranscript.trim();
-          setInput(clean);
-          handleSend(clean);
+        const trimmed = fullText.trim();
+        if (trimmed) {
+          setInput(trimmed);
+          if (isFinal) {
+            appendLog("action", `🎙️ Voice Command Detected: "${trimmed}"`);
+            handleSendRef.current(trimmed);
+          }
         }
       };
 
       recognitionRef.current = rec;
     }
-  }, [handleSend, language]);
+  }, [language, appendLog]);
 
   const handleLanguageChange = useCallback((newLang: string) => {
     setLanguage(newLang);
@@ -868,13 +873,25 @@ export default function JarvisChat() {
   }, []);
 
   const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert("Speech Recognition not supported. Try Chrome/Edge/Electron.");
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition is not supported in this browser environment. Please try Chrome or Edge.");
+      appendLog("error", "Speech Recognition not supported.");
       return;
     }
+
+    if (!recognitionRef.current) {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = language;
+      recognitionRef.current = rec;
+    }
+
     if (isListeningRef.current) {
       isListeningRef.current = false;
       setIsListening(false);
+      appendLog("info", "Microphone turned OFF.");
       try {
         recognitionRef.current.stop();
       } catch {}
@@ -882,9 +899,12 @@ export default function JarvisChat() {
       window.speechSynthesis?.cancel();
       isListeningRef.current = true;
       setIsListening(true);
+      appendLog("info", "Microphone turned ON. Listening for speech...");
       try {
         recognitionRef.current.start();
-      } catch {}
+      } catch (err: any) {
+        console.warn("Mic start error:", err);
+      }
     }
   };
 
