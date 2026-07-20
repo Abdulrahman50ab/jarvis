@@ -872,13 +872,39 @@ export default function JarvisChat() {
     }
   }, []);
 
-  const toggleListening = () => {
+  const toggleListening = async () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Speech Recognition is not supported in this browser environment. Please try Chrome or Edge.");
-      appendLog("error", "Speech Recognition not supported.");
+      alert("Speech Recognition is not supported in this environment. Please try Chrome or Edge.");
+      appendLog("error", "Speech Recognition not supported in environment.");
       return;
     }
+
+    if (isListeningRef.current) {
+      isListeningRef.current = false;
+      setIsListening(false);
+      appendLog("info", "Microphone turned OFF.");
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+      return;
+    }
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    } catch (micErr: any) {
+      appendLog("error", `Microphone permission denied: ${micErr.message || micErr}`);
+      alert("Microphone permission denied. Please allow microphone access in your system/browser settings.");
+      return;
+    }
+
+    window.speechSynthesis?.cancel();
+    isListeningRef.current = true;
+    setIsListening(true);
+    appendLog("info", "Microphone turned ON. Listening for speech...");
 
     if (!recognitionRef.current) {
       const rec = new SpeechRecognition();
@@ -888,23 +914,11 @@ export default function JarvisChat() {
       recognitionRef.current = rec;
     }
 
-    if (isListeningRef.current) {
-      isListeningRef.current = false;
-      setIsListening(false);
-      appendLog("info", "Microphone turned OFF.");
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-    } else {
-      window.speechSynthesis?.cancel();
-      isListeningRef.current = true;
-      setIsListening(true);
-      appendLog("info", "Microphone turned ON. Listening for speech...");
-      try {
-        recognitionRef.current.start();
-      } catch (err: any) {
-        console.warn("Mic start error:", err);
-      }
+    try {
+      recognitionRef.current.start();
+    } catch (err: any) {
+      console.warn("Mic start error:", err);
+      appendLog("warn", `Mic start notice: ${err.message || err}`);
     }
   };
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -19,6 +19,21 @@ function createMainWindow() {
     backgroundColor: '#0a0a0a',
     icon: path.join(__dirname, 'icons', 'jarvis.svg')
   });
+
+  if (session.defaultSession) {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (['media', 'audioCapture', 'notifications', 'speechRecognition'].includes(permission)) {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    });
+
+    session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+      if (['media', 'audioCapture', 'speechRecognition'].includes(permission)) return true;
+      return false;
+    });
+  }
 
   const LIVE_URL = 'https://jarvis-six-pearl.vercel.app/';
   const targetUrl = process.env.FRONTEND_URL || process.env.VERCEL_URL || LIVE_URL;
