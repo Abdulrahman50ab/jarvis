@@ -19,10 +19,10 @@ import {
   RefreshCw,
   Layers,
   Search,
-  CheckCircle2,
-  Split,
-  Play,
   Cpu,
+  Bell,
+  Code2,
+  Check,
 } from "lucide-react";
 import { useSettingsStore } from "@/lib/settings-store";
 import DiffPreviewModal from "./DiffPreviewModal";
@@ -41,6 +41,11 @@ export default function IdePanel({
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeTabPath, setActiveTabPath] = useState<string | null>(null);
+
+  // Live Monaco Editor Cursor & Selection stats
+  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const [selectedLanguage, setSelectedLanguage] = useState("plaintext");
+  const editorRef = useRef<any>(null);
 
   // Search & Navigation state
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,7 +74,6 @@ export default function IdePanel({
 
   // Agent Autonomous Mode
   const [autoMode, setAutoMode] = useState(true);
-  const [taskSteps, setTaskSteps] = useState<string[]>([]);
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [permission, setPermission] = useState<{ request_id: string; action: string; args: any } | null>(null);
@@ -192,6 +196,7 @@ export default function IdePanel({
     const newTab: OpenTab = { path: filePath, name, content: fileContent, isModified: false };
     setOpenTabs((prev) => [...prev, newTab]);
     setActiveTabPath(filePath);
+    setSelectedLanguage(getMonacoLanguage(name));
   };
 
   const closeTab = (filePath: string, e?: React.MouseEvent) => {
@@ -199,7 +204,9 @@ export default function IdePanel({
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t.path !== filePath);
       if (activeTabPath === filePath) {
-        setActiveTabPath(next.length > 0 ? next[next.length - 1].path : null);
+        const nextActive = next.length > 0 ? next[next.length - 1] : null;
+        setActiveTabPath(nextActive ? nextActive.path : null);
+        if (nextActive) setSelectedLanguage(getMonacoLanguage(nextActive.name));
       }
       return next;
     });
@@ -232,7 +239,6 @@ export default function IdePanel({
     }
   };
 
-  // Perform Global Search across open tabs and tree files
   const executeGlobalSearch = () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -299,13 +305,11 @@ export default function IdePanel({
         setRunning(true);
         runningRef.current = true;
         appendLog({ kind: "start", text: `TASK: ${data.content}` });
-        if (data.steps) setTaskSteps(data.steps);
         break;
       case "thought":
         if (data.content) appendLog({ kind: "thought", text: data.content });
         break;
       case "tool":
-        // Intercept file write/create tools to show Diff Preview Modal if content changed
         if (
           (data.action === "write_file" || data.action === "edit_file" || data.action === "create_file") &&
           data.args?.path &&
@@ -316,7 +320,6 @@ export default function IdePanel({
           const currentTab = openTabs.find((t) => t.path === path);
           const origCode = currentTab ? currentTab.content : "";
 
-          // Show AI Code Diff Review Modal
           setDiffModal({
             isOpen: true,
             filename: path.split(/[/\\]/).pop() || path,
@@ -548,6 +551,16 @@ export default function IdePanel({
     }
   };
 
+  const handleEditorDidMount = (editor: any) => {
+    editorRef.current = editor;
+    editor.onDidChangeCursorPosition((e: any) => {
+      setCursorPos({
+        line: e.position.lineNumber,
+        col: e.position.column,
+      });
+    });
+  };
+
   const logColor: Record<string, string> = {
     thought: "text-[var(--muted)] italic",
     tool: "text-[var(--accent)] font-mono",
@@ -561,7 +574,7 @@ export default function IdePanel({
   };
 
   return (
-    <div className="relative w-[52%] max-w-[780px] min-w-[420px] border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col h-full">
+    <div className="relative w-[52%] max-w-[780px] min-w-[420px] border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col h-full overflow-hidden">
       {/* AI Code Diff Review Modal */}
       <DiffPreviewModal
         isOpen={diffModal.isOpen}
@@ -575,11 +588,18 @@ export default function IdePanel({
       {/* Top Header Bar */}
       <div className="h-9 px-3 flex items-center justify-between border-b border-[var(--accent-border)] bg-[var(--background)]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-mono flex items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-mono flex items-center gap-1.5 font-bold">
             <Layers className="w-3.5 h-3.5" /> JARVIS IDE Pro
           </span>
           {gitStatus.isRepo && (
-            <span className="flex items-center gap-1 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+            <span
+              onClick={() => {
+                setTerminalTab("shell");
+                runNativeShellCommand("git status");
+              }}
+              className="flex items-center gap-1 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded cursor-pointer hover:bg-emerald-500/20 transition-all"
+              title="Click to view Git status in shell"
+            >
               <GitBranch className="w-3 h-3" /> {gitStatus.branch}
               {gitStatus.modifiedCount > 0 && (
                 <span className="text-amber-400 font-bold ml-0.5">({gitStatus.modifiedCount})</span>
@@ -672,7 +692,10 @@ export default function IdePanel({
             {openTabs.map((tab) => (
               <div
                 key={tab.path}
-                onClick={() => setActiveTabPath(tab.path)}
+                onClick={() => {
+                  setActiveTabPath(tab.path);
+                  setSelectedLanguage(getMonacoLanguage(tab.name));
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono border-r border-[var(--accent-border)] cursor-pointer select-none transition-colors ${
                   activeTabPath === tab.path
                     ? "bg-[#1e1e1e] text-[var(--accent)] border-b-2 border-b-[var(--accent)] font-medium"
@@ -702,8 +725,9 @@ export default function IdePanel({
             {activeTab ? (
               <Editor
                 height="100%"
-                language={getMonacoLanguage(activeTab.name)}
+                language={selectedLanguage}
                 value={activeTab.content}
+                onMount={handleEditorDidMount}
                 onChange={(value) => updateActiveTabContent(value || "")}
                 theme="vs-dark"
                 options={{
@@ -726,7 +750,7 @@ export default function IdePanel({
       </div>
 
       {/* Multi-Terminal Tabs Area */}
-      <div className="h-1/3 min-h-[150px] border-t border-[var(--accent-border)] bg-black/50 flex flex-col font-mono text-[11px]">
+      <div className="h-1/3 min-h-[140px] border-t border-[var(--accent-border)] bg-black/50 flex flex-col font-mono text-[11px]">
         {/* Terminal Header Tabs */}
         <div className="flex items-center justify-between border-b border-[var(--accent-border)] bg-black/60 px-2 h-7 text-[10px]">
           <div className="flex items-center gap-1">
@@ -808,8 +832,8 @@ export default function IdePanel({
         )}
       </div>
 
-      {/* User Command Bar */}
-      <div className="flex items-center gap-2 p-2 border-t border-[var(--accent-border)]">
+      {/* User Command Input Bar */}
+      <div className="flex items-center gap-2 p-2 border-t border-[var(--accent-border)] bg-[var(--card-bg)]">
         <button
           onClick={startIdeVoice}
           title={ideListening ? "Stop voice commands" : "Start voice commands"}
@@ -842,6 +866,37 @@ export default function IdePanel({
         >
           <Send className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Dynamic VS Code Style IDE Bottom Status Bar */}
+      <div className="h-6 px-3 bg-[#0e0e0e] border-t border-[var(--accent-border)] flex items-center justify-between font-mono text-[10px] text-[var(--muted)] select-none z-10">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1 text-[var(--accent)] font-semibold">
+            <Code2 className="w-3 h-3" />
+            {running ? "⚡ Agent Thinking..." : "🟢 JARVIS Ready"}
+          </span>
+          {gitStatus.isRepo && (
+            <span className="flex items-center gap-1 hover:text-emerald-400 cursor-pointer">
+              <GitBranch className="w-3 h-3 text-emerald-400" />
+              {gitStatus.branch}
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <Bell className="w-3 h-3" /> {logs.length} logs
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <span>
+            Ln {cursorPos.line}, Col {cursorPos.col}
+          </span>
+          <span>Spaces: 2</span>
+          <span>UTF-8</span>
+          <span>LF</span>
+          <span className="text-[var(--accent)] uppercase font-semibold">
+            {selectedLanguage}
+          </span>
+        </div>
       </div>
     </div>
   );
