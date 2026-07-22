@@ -122,13 +122,16 @@ export default function IdePanel({
   const speak = (text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     const st = useSettingsStore.getState();
-    if (st.voice.autoSpeak) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = st.voice.rate;
-      u.pitch = st.voice.pitch;
+    if (!st.voice.autoSpeak || st.voice.volume === 0) {
       window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
+      return;
     }
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = st.voice.rate;
+    u.pitch = st.voice.pitch;
+    u.volume = st.voice.volume;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
   };
 
   const fetchGitInfo = async () => {

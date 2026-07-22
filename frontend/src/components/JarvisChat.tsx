@@ -517,7 +517,12 @@ export default function JarvisChat() {
   }, [language, voiceName]);
 
   const speakText = useCallback((text: string) => {
-    if (isMuted || !window.speechSynthesis) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const st = useSettingsStore.getState();
+    if (isMuted || !st.voice.autoSpeak || st.voice.volume === 0) {
+      window.speechSynthesis.cancel();
+      return;
+    }
     window.speechSynthesis.cancel();
     const cleanText = text.replace(/[*#_`~-]/g, "").replace(/```[\s\S]*?```/g, "[Code block skipped]").trim();
     const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -530,12 +535,19 @@ export default function JarvisChat() {
     if (selected) utterance.voice = selected;
     utterance.rate = voiceRate;
     utterance.pitch = voicePitch;
+    utterance.volume = st.voice.volume;
     utterance.onstart = () => { isSpeakingRef.current = true; };
     utterance.onend = () => {
       isSpeakingRef.current = false;
     };
     window.speechSynthesis.speak(utterance);
   }, [isMuted, language, voiceName, voiceRate, voicePitch]);
+
+  useEffect(() => {
+    if (isMuted && typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [isMuted]);
 
   const refreshWorkspaceTree = useCallback(async () => {
     if (currentRootPath && typeof window !== "undefined" && window.electronAPI?.readFolderTree) {
@@ -1248,7 +1260,14 @@ export default function JarvisChat() {
           </button>
 
           <button
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={() => {
+              const next = !isMuted;
+              setIsMuted(next);
+              if (typeof window !== "undefined" && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+              }
+              useSettingsStore.getState().setVoiceProperty("autoSpeak", !next);
+            }}
             className={`p-2 rounded-lg transition-all ${
               isMuted ? "text-red-400 bg-red-950/20 border border-red-500/30" : "text-slate-400 hover:text-cyan-300 hover:bg-black/40"
             }`}
