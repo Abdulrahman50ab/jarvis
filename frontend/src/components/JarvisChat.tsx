@@ -441,6 +441,88 @@ function CenterCodeViewer({
   );
 }
 
+function MessageContentFormatter({
+  content,
+  onOpenCodeInTab,
+}: {
+  content: string;
+  onOpenCodeInTab: (code: string, language: string, title?: string) => void;
+}) {
+  const parts: Array<{ type: "text" | "code"; text: string; lang?: string; title?: string }> = [];
+  const codeRegex = /```([a-zA-Z0-9_-]*)(?::([^\n]+))?\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", text: content.substring(lastIndex, match.index) });
+    }
+    const lang = match[1] || "text";
+    const title = match[2]?.trim();
+    const code = match[3];
+    parts.push({ type: "code", text: code, lang, title });
+    lastIndex = codeRegex.lastIndex;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push({ type: "text", text: content.substring(lastIndex) });
+  }
+
+  const handleCopyCode = (codeText: string) => {
+    navigator.clipboard.writeText(codeText);
+  };
+
+  return (
+    <div className="space-y-2">
+      {parts.map((part, index) => {
+        if (part.type === "text") {
+          return (
+            <div key={index} className="whitespace-pre-wrap text-xs font-mono leading-relaxed">
+              {part.text.replace(/[\uFFFD\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")}
+            </div>
+          );
+        }
+
+        const linesCount = part.text.trim().split("\n").length;
+        const displayTitle = part.title || `code-snippet-${index + 1}.${part.lang || "txt"}`;
+
+        return (
+          <div key={index} className="my-2 border border-cyan-500/30 bg-[#040812] rounded-lg overflow-hidden font-mono shadow-md">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 border-b border-cyan-500/20 text-[11px]">
+              <span className="text-cyan-300 font-semibold flex items-center gap-1.5">
+                <Code className="w-3.5 h-3.5 text-cyan-400" />
+                {displayTitle}
+                <span className="text-[10px] text-slate-500 font-normal">({linesCount} lines)</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onOpenCodeInTab(part.text, part.lang || "text", displayTitle)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 text-[10px] transition-all"
+                  title="Open code in editor tab"
+                >
+                  <FileCode className="w-3 h-3 text-cyan-400" />
+                  <span>Open in Editor</span>
+                </button>
+                <button
+                  onClick={() => handleCopyCode(part.text)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-black/40 hover:bg-black/60 border border-slate-700 text-slate-300 text-[10px] transition-all"
+                  title="Copy code"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>Copy</span>
+                </button>
+              </div>
+            </div>
+            <pre className="p-3 text-[11px] text-cyan-200 overflow-x-auto whitespace-pre leading-relaxed font-mono">
+              {part.text}
+            </pre>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function JarvisChat() {
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: WELCOME_MESSAGES["en-US"] },
@@ -761,6 +843,29 @@ export default function JarvisChat() {
             }
           } catch (e) {
             console.error("Error parsing AI tool call:", e);
+          }
+        }
+
+        // Automatically extract any generated code blocks into persistent tabs
+        const codeBlockRegex = /```([a-zA-Z0-9_-]*)(?::([^\n]+))?\n([\s\S]*?)```/g;
+        let codeMatch;
+        let codeIdx = 1;
+        while ((codeMatch = codeBlockRegex.exec(accumulated)) !== null) {
+          const lang = codeMatch[1] || "text";
+          const title = codeMatch[2]?.trim();
+          const codeContent = codeMatch[3];
+          if (codeContent && codeContent.trim().length > 10) {
+            const ext = lang === "typescript" || lang === "tsx" ? "tsx" : (lang === "javascript" || lang === "jsx" ? "jsx" : (lang === "python" || lang === "py" ? "py" : (lang === "json" ? "json" : (lang === "html" ? "html" : (lang === "css" ? "css" : "txt")))));
+            const tabName = title || `generated-${codeIdx}.${ext}`;
+            const tabId = `code-tab-${Date.now()}-${codeIdx}`;
+            codeIdx++;
+            setOpenTabs((prev) => {
+              const exists = prev.find((t) => t.content.trim() === codeContent.trim());
+              if (exists) return prev;
+              const nextTabs = [...prev, { id: tabId, name: tabName, content: codeContent }];
+              if (!activeTabId) setActiveTabId(tabId);
+              return nextTabs;
+            });
           }
         }
 
@@ -1327,7 +1432,27 @@ export default function JarvisChat() {
                           )}
                         </div>
                         <div className="whitespace-pre-wrap text-xs font-mono leading-relaxed">
-                          {msg.content.replace(/[\uFFFD\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")}
+                          <MessageContentFormatter
+                            content={msg.content}
+                            onOpenCodeInTab={(code, lang, title) => {
+                              const ext = lang === "typescript" || lang === "tsx" ? "tsx" : (lang === "javascript" || lang === "jsx" ? "jsx" : (lang === "python" || lang === "py" ? "py" : (lang === "json" ? "json" : (lang === "html" ? "html" : (lang === "css" ? "css" : "txt")))));
+                              const tabName = title || `code-snippet.${ext}`;
+                              const tabId = `code-tab-${Date.now()}`;
+                              setOpenTabs((prev) => {
+                                const exists = prev.find((t) => t.content.trim() === code.trim());
+                                if (exists) {
+                                  setActiveTabId(exists.id);
+                                  return prev;
+                                }
+                                const nextTabs = [...prev, { id: tabId, name: tabName, content: code }];
+                                setActiveTabId(tabId);
+                                return nextTabs;
+                              });
+                              if (viewMode === "chat") {
+                                setViewMode("split");
+                              }
+                            }}
+                          />
                         </div>
                       </div>
                     </div>
