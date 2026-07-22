@@ -1,8 +1,31 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { File as FileIcon, Folder, FolderOpen, Terminal, Send, ShieldCheck, ShieldOff, Loader2, X, Mic, MicOff, Save, GitBranch, RefreshCw, Layers } from "lucide-react";
+import Editor from "@monaco-editor/react";
+import {
+  File as FileIcon,
+  Folder,
+  FolderOpen,
+  Terminal,
+  Send,
+  ShieldCheck,
+  ShieldOff,
+  Loader2,
+  X,
+  Mic,
+  MicOff,
+  Save,
+  GitBranch,
+  RefreshCw,
+  Layers,
+  Search,
+  CheckCircle2,
+  Split,
+  Play,
+  Cpu,
+} from "lucide-react";
 import { useSettingsStore } from "@/lib/settings-store";
+import DiffPreviewModal from "./DiffPreviewModal";
 
 type TreeNode = { name: string; path: string; type: "dir" | "file"; children?: TreeNode[] };
 type LogEntry = { id: number; kind: string; text: string; meta?: any };
@@ -18,19 +41,48 @@ export default function IdePanel({
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeTabPath, setActiveTabPath] = useState<string | null>(null);
-  
+
+  // Search & Navigation state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ path: string; line: number; text: string }[]>([]);
+
+  // Terminal Tabs & Modes
+  const [terminalTab, setTerminalTab] = useState<"console" | "shell" | "output">("console");
+  const [shellLogs, setShellLogs] = useState<string[]>([]);
+  const [shellInput, setShellInput] = useState("");
+
+  // AI Diff Preview state
+  const [diffModal, setDiffModal] = useState<{
+    isOpen: boolean;
+    filename: string;
+    targetPath: string;
+    originalCode: string;
+    proposedCode: string;
+  }>({
+    isOpen: false,
+    filename: "",
+    targetPath: "",
+    originalCode: "",
+    proposedCode: "",
+  });
+
+  // Agent Autonomous Mode
+  const [autoMode, setAutoMode] = useState(true);
+  const [taskSteps, setTaskSteps] = useState<string[]>([]);
+
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [permission, setPermission] = useState<{ request_id: string; action: string; args: any } | null>(null);
   const [running, setRunning] = useState(false);
   const [command, setCommand] = useState("");
   const [ideListening, setIdeListening] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["."]));
-  
+
   // Git & System status
   const [gitStatus, setGitStatus] = useState<{ isRepo: boolean; branch: string; modifiedCount: number }>({
     isRepo: false,
     branch: "main",
-    modifiedCount: 0
+    modifiedCount: 0,
   });
 
   const [autoApprove, setAutoApprove] = useState<boolean>(() => {
@@ -59,6 +111,10 @@ export default function IdePanel({
     setLogs(messagesRef.current);
   };
 
+  const appendShellLog = (text: string) => {
+    setShellLogs((prev) => [...prev, text]);
+  };
+
   const speak = (text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     const st = useSettingsStore.getState();
@@ -78,7 +134,7 @@ export default function IdePanel({
         setGitStatus({
           isRepo: true,
           branch: res.branch || "main",
-          modifiedCount: res.modifiedCount || 0
+          modifiedCount: res.modifiedCount || 0,
         });
       }
     }
@@ -176,6 +232,27 @@ export default function IdePanel({
     }
   };
 
+  // Perform Global Search across open tabs and tree files
+  const executeGlobalSearch = () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const query = searchQuery.toLowerCase();
+    const results: { path: string; line: number; text: string }[] = [];
+
+    openTabs.forEach((tab) => {
+      const lines = tab.content.split("\n");
+      lines.forEach((lineText, idx) => {
+        if (lineText.toLowerCase().includes(query)) {
+          results.push({ path: tab.path, line: idx + 1, text: lineText.trim() });
+        }
+      });
+    });
+
+    setSearchResults(results);
+  };
+
   useEffect(() => {
     let closedByUs = false;
     let reconnectTimer: any = null;
@@ -192,7 +269,7 @@ export default function IdePanel({
         appendLog({ kind: "system", text: "Agent core disconnected." });
         if (!closedByUs) reconnectTimer = setTimeout(connect, 2000);
       };
-      ws.onerror = () => appendLog({ kind: "error", text: "Agent socket fallback ready." });
+      ws.onerror = () => appendLog({ kind: "system", text: "Agent socket fallback ready." });
       ws.onmessage = (ev) => {
         let data: any;
         try {
@@ -222,11 +299,33 @@ export default function IdePanel({
         setRunning(true);
         runningRef.current = true;
         appendLog({ kind: "start", text: `TASK: ${data.content}` });
+        if (data.steps) setTaskSteps(data.steps);
         break;
       case "thought":
         if (data.content) appendLog({ kind: "thought", text: data.content });
         break;
       case "tool":
+        // Intercept file write/create tools to show Diff Preview Modal if content changed
+        if (
+          (data.action === "write_file" || data.action === "edit_file" || data.action === "create_file") &&
+          data.args?.path &&
+          data.args?.content
+        ) {
+          const path = data.args.path;
+          const proposedContent = data.args.content;
+          const currentTab = openTabs.find((t) => t.path === path);
+          const origCode = currentTab ? currentTab.content : "";
+
+          // Show AI Code Diff Review Modal
+          setDiffModal({
+            isOpen: true,
+            filename: path.split(/[/\\]/).pop() || path,
+            targetPath: path,
+            originalCode: origCode,
+            proposedCode: proposedContent,
+          });
+        }
+
         appendLog({
           kind: "tool",
           text: `${data.action}`,
@@ -276,6 +375,22 @@ export default function IdePanel({
     permReqRef.current = null;
   };
 
+  const handleAcceptDiff = async () => {
+    if (!diffModal.targetPath) return;
+    const { targetPath, proposedCode } = diffModal;
+    if (typeof window !== "undefined" && window.electronAPI?.writeFile) {
+      await window.electronAPI.writeFile(targetPath, proposedCode);
+    }
+    openFileInTab(targetPath);
+    setDiffModal((prev) => ({ ...prev, isOpen: false }));
+    appendLog({ kind: "system", text: `✓ AI edits accepted and saved for ${diffModal.filename}` });
+  };
+
+  const handleRejectDiff = () => {
+    setDiffModal((prev) => ({ ...prev, isOpen: false }));
+    appendLog({ kind: "denied", text: `✗ AI edits rejected for ${diffModal.filename}` });
+  };
+
   const startIdeVoice = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
@@ -308,13 +423,27 @@ export default function IdePanel({
     try { rec.start(); setIdeListening(true); ideRecRef.current = rec; } catch {}
   };
 
+  const runNativeShellCommand = async (cmdStr: string) => {
+    if (!cmdStr.trim()) return;
+    appendShellLog(`$ ${cmdStr}`);
+    if (typeof window !== "undefined" && window.electronAPI?.executeCommand) {
+      const res = await window.electronAPI.executeCommand(cmdStr);
+      appendShellLog(res.output || res.error || "Done.");
+    } else {
+      appendShellLog("Desktop Electron Bridge not connected.");
+    }
+  };
+
   const sendCommand = async (text: string) => {
     if (!text.trim()) return;
 
     appendLog({ kind: "user", text });
 
-    // Check if user is executing a native shell command in Electron desktop app
-    if (typeof window !== "undefined" && window.electronAPI?.executeCommand && (text.startsWith("$") || text.startsWith("run ") || text.startsWith("npm ") || text.startsWith("git ") || text.startsWith("dir") || text.startsWith("ls"))) {
+    if (
+      typeof window !== "undefined" &&
+      window.electronAPI?.executeCommand &&
+      (text.startsWith("$") || text.startsWith("run ") || text.startsWith("npm ") || text.startsWith("git ") || text.startsWith("dir") || text.startsWith("ls"))
+    ) {
       const cleanCmd = text.startsWith("$") ? text.slice(1).trim() : (text.startsWith("run ") ? text.slice(4).trim() : text);
       appendLog({ kind: "system", text: `[Native Exec] > ${cleanCmd}` });
       setRunning(true);
@@ -347,7 +476,7 @@ export default function IdePanel({
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       setRunning(true);
       runningRef.current = true;
-      wsRef.current.send(JSON.stringify({ type: "command", text, model_settings }));
+      wsRef.current.send(JSON.stringify({ type: "command", text, model_settings, autonomous: autoMode }));
     } else {
       appendLog({ kind: "error", text: "Agent WS core offline. Use terminal prefix '$ command' for desktop execution." });
     }
@@ -393,6 +522,32 @@ export default function IdePanel({
       </div>
     ));
 
+  const getMonacoLanguage = (filename: string) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    switch (ext) {
+      case "ts":
+      case "tsx":
+        return "typescript";
+      case "js":
+      case "jsx":
+        return "javascript";
+      case "json":
+        return "json";
+      case "css":
+        return "css";
+      case "html":
+        return "html";
+      case "py":
+        return "python";
+      case "md":
+        return "markdown";
+      case "sql":
+        return "sql";
+      default:
+        return "plaintext";
+    }
+  };
+
   const logColor: Record<string, string> = {
     thought: "text-[var(--muted)] italic",
     tool: "text-[var(--accent)] font-mono",
@@ -405,63 +560,113 @@ export default function IdePanel({
     start: "text-[var(--accent)] font-bold",
   };
 
-  const getLanguageBadge = (filename: string) => {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    switch (ext) {
-      case 'ts': case 'tsx': return 'TypeScript';
-      case 'js': case 'jsx': return 'JavaScript';
-      case 'json': return 'JSON';
-      case 'css': return 'CSS';
-      case 'html': return 'HTML';
-      case 'md': return 'Markdown';
-      case 'py': return 'Python';
-      default: return ext?.toUpperCase() || 'Text';
-    }
-  };
-
-  const activeContentLines = activeTab ? activeTab.content.split('\n').length : 0;
-  const activeContentChars = activeTab ? activeTab.content.length : 0;
-
   return (
-    <div className="relative w-[48%] max-w-[720px] min-w-[380px] border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col h-full">
+    <div className="relative w-[52%] max-w-[780px] min-w-[420px] border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col h-full">
+      {/* AI Code Diff Review Modal */}
+      <DiffPreviewModal
+        isOpen={diffModal.isOpen}
+        filename={diffModal.filename}
+        originalCode={diffModal.originalCode}
+        modifiedCode={diffModal.proposedCode}
+        onAccept={handleAcceptDiff}
+        onReject={handleRejectDiff}
+      />
+
       {/* Top Header Bar */}
       <div className="h-9 px-3 flex items-center justify-between border-b border-[var(--accent-border)] bg-[var(--background)]">
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-mono flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5" /> JARVIS IDE · Workspace
+            <Layers className="w-3.5 h-3.5" /> JARVIS IDE Pro
           </span>
           {gitStatus.isRepo && (
             <span className="flex items-center gap-1 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">
               <GitBranch className="w-3 h-3" /> {gitStatus.branch}
               {gitStatus.modifiedCount > 0 && (
-                <span className="text-amber-400 font-bold ml-0.5">({gitStatus.modifiedCount} modified)</span>
+                <span className="text-amber-400 font-bold ml-0.5">({gitStatus.modifiedCount})</span>
               )}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {ideListening && (
-            <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              listening
-            </span>
-          )}
-          <button onClick={fetchTree} title="Refresh File Tree & Git Status" className="text-[var(--muted)] hover:text-[var(--accent)] text-xs flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" /> refresh
+          <button
+            onClick={() => setShowSearchPanel(!showSearchPanel)}
+            className={`p-1 rounded text-xs flex items-center gap-1 font-mono transition-colors ${
+              showSearchPanel
+                ? "bg-[var(--accent-bg-strong)] text-[var(--accent)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+            title="Global Workspace Search (Ctrl+Shift+F)"
+          >
+            <Search className="w-3.5 h-3.5" /> Search
+          </button>
+          <button
+            onClick={() => setAutoMode(!autoMode)}
+            className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-all ${
+              autoMode
+                ? "bg-purple-500/10 border-purple-500/30 text-purple-400 font-semibold"
+                : "bg-gray-800 border-gray-700 text-gray-400"
+            }`}
+            title="Autonomous Coding Agent Mode"
+          >
+            <Cpu className="w-3 h-3 inline mr-1" />
+            {autoMode ? "Auto Loop ON" : "Auto Loop OFF"}
+          </button>
+          <button onClick={fetchTree} title="Refresh File Tree" className="text-[var(--muted)] hover:text-[var(--accent)] text-xs">
+            <RefreshCw className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      {/* Main Workspace split */}
+      {/* Global Workspace Search Panel Overlay */}
+      {showSearchPanel && (
+        <div className="bg-black/60 border-b border-[var(--accent-border)] p-2 animate-fade-in font-mono text-xs">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Search className="w-4 h-4 text-[var(--accent)]" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && executeGlobalSearch()}
+              placeholder="Search across open files and workspace..."
+              className="flex-1 bg-[var(--background)] border border-[var(--accent-border)] rounded px-2 py-1 text-xs text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+            />
+            <button
+              onClick={executeGlobalSearch}
+              className="px-2.5 py-1 rounded bg-[var(--accent-bg)] hover:bg-[var(--accent-bg-strong)] text-[var(--accent)] font-mono text-xs"
+            >
+              Search
+            </button>
+          </div>
+          {searchResults.length > 0 && (
+            <div className="max-h-28 overflow-y-auto space-y-1 mt-1 text-[11px]">
+              {searchResults.map((r, i) => (
+                <div
+                  key={i}
+                  onClick={() => openFileInTab(r.path)}
+                  className="flex items-center justify-between p-1 hover:bg-[var(--accent-bg)] rounded cursor-pointer text-[var(--muted)] hover:text-[var(--accent)]"
+                >
+                  <span className="truncate max-w-[300px]">
+                    {r.path.split(/[/\\]/).pop()}:L{r.line}
+                  </span>
+                  <span className="text-[10px] text-[var(--foreground)] truncate ml-2 font-mono">
+                    {r.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Workspace Split */}
       <div className="flex flex-1 min-h-0">
-        {/* Left: File Tree */}
+        {/* File Tree Explorer */}
         <div className="w-1/3 border-r border-[var(--accent-border)] overflow-y-auto p-2">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1 font-mono">Project Files</div>
+          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1 font-mono">Files</div>
           {renderNodes(tree)}
         </div>
 
-        {/* Right: Multi-Tab Editor Area */}
-        <div className="w-2/3 flex flex-col min-h-0 bg-[var(--background)]/50">
+        {/* Monaco Code Editor Area */}
+        <div className="w-2/3 flex flex-col min-h-0 bg-[#1e1e1e]">
           {/* Tabs Bar */}
           <div className="flex items-center bg-black/40 border-b border-[var(--accent-border)] overflow-x-auto min-h-[32px]">
             {openTabs.map((tab) => (
@@ -470,8 +675,8 @@ export default function IdePanel({
                 onClick={() => setActiveTabPath(tab.path)}
                 className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono border-r border-[var(--accent-border)] cursor-pointer select-none transition-colors ${
                   activeTabPath === tab.path
-                    ? "bg-[var(--card-bg)] text-[var(--accent)] border-b-2 border-b-[var(--accent)] font-medium"
-                    : "text-[var(--muted)] hover:bg-[var(--card-bg)]/50 hover:text-[var(--foreground)]"
+                    ? "bg-[#1e1e1e] text-[var(--accent)] border-b-2 border-b-[var(--accent)] font-medium"
+                    : "text-[var(--muted)] hover:bg-[#252526] hover:text-[var(--foreground)]"
                 }`}
               >
                 <FileIcon className="w-3 h-3" />
@@ -492,85 +697,118 @@ export default function IdePanel({
             )}
           </div>
 
-          {/* Active File Editor Header & Stats */}
-          {activeTab && (
-            <div className="px-3 py-1 flex items-center justify-between bg-black/20 border-b border-[var(--accent-border)] text-[10px] font-mono text-[var(--muted)]">
-              <div className="flex items-center gap-3">
-                <span className="text-[var(--accent)] font-semibold">{getLanguageBadge(activeTab.name)}</span>
-                <span>{activeContentLines} lines</span>
-                <span>{activeContentChars} chars</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {activeTab.isModified && (
-                  <span className="text-amber-400">Unsaved changes</span>
-                )}
-                <button
-                  onClick={saveActiveTab}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--accent-bg)] hover:bg-[var(--accent-bg-strong)] text-[var(--accent)] transition-colors"
-                >
-                  <Save className="w-3 h-3" /> Save
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Editor Body */}
-          <div className="flex-1 p-2 overflow-auto font-mono text-xs">
+          {/* Monaco Editor Container */}
+          <div className="flex-1 min-h-0 relative">
             {activeTab ? (
-              <textarea
+              <Editor
+                height="100%"
+                language={getMonacoLanguage(activeTab.name)}
                 value={activeTab.content}
-                onChange={(e) => updateActiveTabContent(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-                    e.preventDefault();
-                    saveActiveTab();
-                  }
+                onChange={(value) => updateActiveTabContent(value || "")}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: true },
+                  scrollBeyondLastLine: false,
+                  fontSize: 13,
+                  fontFamily: "monospace",
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: "on",
                 }}
-                className="w-full h-full bg-transparent text-[var(--foreground)] resize-none outline-none font-mono leading-relaxed text-[12px]"
-                spellCheck={false}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-[var(--muted)] text-xs font-mono">
-                Select a file from the explorer to open in editor tab.
+                Select a file from the explorer to edit in Monaco Engine.
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Terminal / Console area */}
-      <div className="h-1/3 min-h-[140px] border-t border-[var(--accent-border)] bg-black/40 overflow-y-auto p-2 font-mono text-[11px]">
-        <div className="flex items-center justify-between text-[var(--muted)] mb-1 uppercase tracking-widest text-[10px]">
-          <div className="flex items-center gap-1.5">
-            <Terminal className="w-3 h-3 text-[var(--accent)]" /> Agent Console & Shell
-            {running && <Loader2 className="w-3 h-3 animate-spin text-[var(--accent)]" />}
+      {/* Multi-Terminal Tabs Area */}
+      <div className="h-1/3 min-h-[150px] border-t border-[var(--accent-border)] bg-black/50 flex flex-col font-mono text-[11px]">
+        {/* Terminal Header Tabs */}
+        <div className="flex items-center justify-between border-b border-[var(--accent-border)] bg-black/60 px-2 h-7 text-[10px]">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setTerminalTab("console")}
+              className={`px-2 py-0.5 rounded font-mono uppercase tracking-wider ${
+                terminalTab === "console"
+                  ? "bg-[var(--accent-bg)] text-[var(--accent)] font-semibold"
+                  : "text-[var(--muted)] hover:text-white"
+              }`}
+            >
+              Agent Console
+            </button>
+            <button
+              onClick={() => setTerminalTab("shell")}
+              className={`px-2 py-0.5 rounded font-mono uppercase tracking-wider ${
+                terminalTab === "shell"
+                  ? "bg-[var(--accent-bg)] text-[var(--accent)] font-semibold"
+                  : "text-[var(--muted)] hover:text-white"
+              }`}
+            >
+              Native Shell ($)
+            </button>
           </div>
           <span className="text-[9px] text-emerald-400 font-mono">
-            {typeof window !== "undefined" && window.electronAPI ? "Desktop Native Terminal" : "Web Bridge"}
+            {typeof window !== "undefined" && window.electronAPI ? "Desktop Native Terminal Engine" : "Web Bridge"}
           </span>
         </div>
-        {logs.map((l) => (
-          <div key={l.id} className={`mb-1 ${logColor[l.kind] || "text-[var(--foreground)]"}`}>
-            {l.kind === "tool" && (
-              <div>
-                <span className="text-[var(--accent)]">▸ {l.text}</span>
-                {l.meta?.args && (
-                  <span className="text-[var(--muted)]"> ({JSON.stringify(l.meta.args)})</span>
-                )}
-                {l.meta?.result && (
-                  <pre className="text-[var(--muted)] whitespace-pre-wrap mt-0.5 text-[10px]">
-                    {String(l.meta.result).slice(0, 600)}
-                  </pre>
-                )}
-              </div>
-            )}
-            {l.kind !== "tool" && <span className="whitespace-pre-wrap">{l.text}</span>}
+
+        {/* Terminal Body */}
+        <div className="flex-1 overflow-y-auto p-2">
+          {terminalTab === "console" && (
+            <div>
+              {logs.map((l) => (
+                <div key={l.id} className={`mb-1 ${logColor[l.kind] || "text-[var(--foreground)]"}`}>
+                  {l.kind === "tool" && (
+                    <div>
+                      <span className="text-[var(--accent)]">▸ {l.text}</span>
+                      {l.meta?.args && (
+                        <span className="text-[var(--muted)]"> ({JSON.stringify(l.meta.args)})</span>
+                      )}
+                    </div>
+                  )}
+                  {l.kind !== "tool" && <span className="whitespace-pre-wrap">{l.text}</span>}
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          )}
+
+          {terminalTab === "shell" && (
+            <div>
+              {shellLogs.map((log, idx) => (
+                <div key={idx} className="whitespace-pre-wrap text-emerald-400/90 mb-1">
+                  {log}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Shell Quick Input if Native Shell active */}
+        {terminalTab === "shell" && (
+          <div className="flex items-center gap-2 p-1 border-t border-[var(--accent-border)] bg-black/40">
+            <span className="text-emerald-400 font-bold">$</span>
+            <input
+              value={shellInput}
+              onChange={(e) => setShellInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  runNativeShellCommand(shellInput);
+                  setShellInput("");
+                }
+              }}
+              placeholder="Run shell command (e.g. npm test, git status)..."
+              className="flex-1 bg-transparent text-emerald-300 text-xs font-mono outline-none"
+            />
           </div>
-        ))}
-        <div ref={logsEndRef} />
+        )}
       </div>
 
-      {/* Input bar */}
+      {/* User Command Bar */}
       <div className="flex items-center gap-2 p-2 border-t border-[var(--accent-border)]">
         <button
           onClick={startIdeVoice}
@@ -592,8 +830,8 @@ export default function IdePanel({
               setCommand("");
             }
           }}
-          placeholder="Tell JARVIS what to build/fix, or run command '$ npm test'..."
-          className="flex-1 bg-[var(--background)] border border-[var(--accent-border-strong)] rounded px-2 py-1.5 text-[12px] text-[var(--accent)] outline-none focus:border-[var(--accent)]"
+          placeholder="Tell JARVIS what to build/fix, or run '$ npm test'..."
+          className="flex-1 bg-[var(--background)] border border-[var(--accent-border-strong)] rounded px-2 py-1.5 text-[12px] text-[var(--accent)] outline-none focus:border-[var(--accent)] font-mono"
         />
         <button
           onClick={() => {
@@ -605,71 +843,6 @@ export default function IdePanel({
           <Send className="w-4 h-4" />
         </button>
       </div>
-
-      {ideListening && (
-        <div className="px-3 pb-2 text-[11px] font-mono text-emerald-400/90 animate-pulse">
-          🎤 Listening… speak your command (or say "yes"/"no" when asked for permission).
-        </div>
-      )}
-
-      {/* Permission Approval Modal */}
-      {permission && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in">
-          <div className="w-[420px] max-w-[90%] border border-amber-500/50 bg-[var(--card-bg)] rounded-lg p-5 shadow-[0_0_30px_rgba(245,158,11,0.2)]">
-            <div className="flex items-center gap-2 text-amber-400 mb-3">
-              <ShieldCheck className="w-5 h-5" />
-              <span className="text-sm font-mono uppercase tracking-widest">Permission Required</span>
-            </div>
-            <div className="text-[var(--foreground)] text-sm mb-1">
-              JARVIS wants to run:{" "}
-              <span className="font-mono text-[var(--accent)]">{permission.action.replace(/_/g, " ")}</span>
-            </div>
-            <pre className="text-[11px] text-[var(--muted)] bg-black/40 rounded p-2 overflow-auto max-h-40 mb-4 font-mono">
-              {JSON.stringify(permission.args, null, 2)}
-            </pre>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => resolvePermission(true)}
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded bg-emerald-600/20 border border-emerald-500/50 text-emerald-400 hover:bg-emerald-600/30 text-xs font-mono uppercase tracking-wider"
-              >
-                <ShieldCheck className="w-4 h-4" /> Approve
-              </button>
-              <button
-                onClick={() => resolvePermission(false)}
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded bg-red-600/20 border border-red-500/50 text-red-400 hover:bg-red-600/30 text-xs font-mono uppercase tracking-wider"
-              >
-                <ShieldOff className="w-4 h-4" /> Reject
-              </button>
-            </div>
-            <div className="mt-3 pt-3 border-t border-[var(--accent-border)]">
-              <label className="flex items-center gap-2 cursor-pointer text-[11px] text-[var(--muted)] font-mono hover:text-[var(--accent)] transition-colors">
-                <input
-                  type="checkbox"
-                  checked={autoApprove}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setAutoApprove(checked);
-                    if (typeof window !== "undefined") {
-                      localStorage.setItem("jarvis_auto_approve", checked ? "true" : "false");
-                    }
-                  }}
-                  className="accent-[var(--accent)] rounded"
-                />
-                <span>Always Auto-Approve (Don't ask confirmation dialog again)</span>
-              </label>
-            </div>
-            <div className="text-[10px] text-[var(--muted)] text-center mt-2 font-mono">
-              or just say "yes" / "no"
-            </div>
-            <button
-              onClick={() => resolvePermission(false)}
-              className="absolute top-2 right-2 text-[var(--muted)] hover:text-[var(--accent)]"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
