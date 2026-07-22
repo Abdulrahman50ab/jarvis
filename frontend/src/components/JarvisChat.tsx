@@ -144,24 +144,6 @@ const WELCOME_MESSAGES: Record<string, string> = {
   "zh-CN": "已上线并准备就绪，先生。我拥有对工作区查看、创建、编辑和删除文件的完整权限。",
 };
 
-declare global {
-  interface Window {
-    SpeechRecognition?: any;
-    webkitSpeechRecognition?: any;
-    electronAPI?: {
-      readFile: (path: string) => Promise<{ success: boolean; content: string; error?: string }>;
-      writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: string }>;
-      createFile: (path: string, content?: string) => Promise<{ success: boolean; error?: string }>;
-      deleteFile: (path: string) => Promise<{ success: boolean; error?: string }>;
-      createFolder: (path: string) => Promise<{ success: boolean; error?: string }>;
-      listFiles: (dirPath: string) => Promise<{ success: boolean; files: any[] }>;
-      readFolderTree: (dirPath: string) => Promise<{ success: boolean; tree: any[] }>;
-      openFolder: () => Promise<{ canceled: boolean; filePaths: string[] }>;
-      openFile: () => Promise<{ canceled: boolean; filePaths: string[] }>;
-    };
-  }
-}
-
 function FileTree({
   nodes,
   depth = 0,
@@ -567,7 +549,7 @@ export default function JarvisChat() {
             children: item.children ? convertTree(item.children) : undefined,
           }));
         };
-        setProjectFiles(convertTree(treeRes.tree));
+        setProjectFiles(convertTree(treeRes.tree || []));
         appendLog("info", `Workspace refreshed: ${currentRootPath}`);
       }
     }
@@ -601,7 +583,7 @@ export default function JarvisChat() {
           if (!fileContent && item.path && typeof window !== "undefined" && window.electronAPI?.readFile) {
             try {
               const res = await window.electronAPI.readFile(item.path);
-              if (res && res.success) fileContent = res.content;
+              if (res && res.success) fileContent = res.content || "";
             } catch {}
           }
 
@@ -650,7 +632,7 @@ export default function JarvisChat() {
         let fileContent = content;
         if (!fileContent && typeof window !== "undefined" && window.electronAPI?.readFile) {
           const res = await window.electronAPI.readFile(fullPath);
-          if (res && res.success) fileContent = res.content;
+          if (res && res.success) fileContent = res.content || "";
         }
         const filename = targetPath.split(/[/\\]/).pop() || targetPath;
         const tabId = fullPath;
@@ -938,7 +920,7 @@ export default function JarvisChat() {
       if (typeof window !== "undefined" && window.electronAPI?.readFile) {
         try {
           const res = await window.electronAPI.readFile(node.path);
-          if (res && res.success) {
+          if (res && res.success && res.content !== undefined) {
             content = res.content;
           }
         } catch (err) {
@@ -1086,7 +1068,7 @@ export default function JarvisChat() {
               children: item.children ? convertTree(item.children) : undefined,
             }));
           };
-          setProjectFiles(convertTree(treeRes.tree));
+          setProjectFiles(convertTree(treeRes.tree || []));
           setShowFileTree(true);
           appendLog("info", `Opened folder workspace: ${dirPath}`);
         }

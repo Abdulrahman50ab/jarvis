@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { File as FileIcon, Folder, FolderOpen, Terminal, Send, ShieldCheck, ShieldOff, Loader2, X, Mic, MicOff } from "lucide-react";
+import { File as FileIcon, Folder, FolderOpen, Terminal, Send, ShieldCheck, ShieldOff, Loader2, X, Mic, MicOff, Save, GitBranch, RefreshCw, Layers } from "lucide-react";
 import { useSettingsStore } from "@/lib/settings-store";
 
 type TreeNode = { name: string; path: string; type: "dir" | "file"; children?: TreeNode[] };
 type LogEntry = { id: number; kind: string; text: string; meta?: any };
+type OpenTab = { path: string; name: string; content: string; isModified?: boolean };
 
 let logId = 0;
 
@@ -15,13 +16,23 @@ export default function IdePanel({
   agentSendRef: React.MutableRefObject<((text: string) => void) | null>;
 }) {
   const [tree, setTree] = useState<TreeNode[]>([]);
-  const [selected, setSelected] = useState<{ path: string; content: string } | null>(null);
+  const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
+  const [activeTabPath, setActiveTabPath] = useState<string | null>(null);
+  
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [permission, setPermission] = useState<{ request_id: string; action: string; args: any } | null>(null);
   const [running, setRunning] = useState(false);
   const [command, setCommand] = useState("");
   const [ideListening, setIdeListening] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["."]));
+  
+  // Git & System status
+  const [gitStatus, setGitStatus] = useState<{ isRepo: boolean; branch: string; modifiedCount: number }>({
+    isRepo: false,
+    branch: "main",
+    modifiedCount: 0
+  });
+
   const [autoApprove, setAutoApprove] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("jarvis_auto_approve") === "true";
@@ -39,6 +50,8 @@ export default function IdePanel({
   const permissionRef = useRef<any>(null);
   permissionRef.current = permission;
   const ideRecRef = useRef<any>(null);
+
+  const activeTab = openTabs.find((t) => t.path === activeTabPath) || null;
 
   const appendLog = (entry: Omit<LogEntry, "id">) => {
     const next = { ...entry, id: ++logId };
@@ -58,7 +71,29 @@ export default function IdePanel({
     }
   };
 
+  const fetchGitInfo = async () => {
+    if (typeof window !== "undefined" && window.electronAPI?.getGitStatus) {
+      const res = await window.electronAPI.getGitStatus();
+      if (res.success && res.isRepo) {
+        setGitStatus({
+          isRepo: true,
+          branch: res.branch || "main",
+          modifiedCount: res.modifiedCount || 0
+        });
+      }
+    }
+  };
+
   const fetchTree = async () => {
+    if (typeof window !== "undefined" && window.electronAPI?.readFolderTree) {
+      const res = await window.electronAPI.readFolderTree(process.cwd?.() || ".");
+      if (res.success && res.tree) {
+        setTree(res.tree);
+        fetchGitInfo();
+        return;
+      }
+    }
+
     const st = useSettingsStore.getState();
     const base = st.aiModel.backendUrl.replace(/\/$/, "");
     try {
@@ -68,17 +103,76 @@ export default function IdePanel({
     } catch (e) {
       appendLog({ kind: "error", text: "Could not load workspace tree" });
     }
+    fetchGitInfo();
   };
 
-  const openFile = async (path: string) => {
-    const st = useSettingsStore.getState();
-    const base = st.aiModel.backendUrl.replace(/\/$/, "");
-    try {
-      const res = await fetch(`${base}/api/v1/workspace/file?path=${encodeURIComponent(path)}`);
-      const json = await res.json();
-      setSelected({ path, content: json.content });
-    } catch (e) {
-      appendLog({ kind: "error", text: `Could not open ${path}` });
+  const openFileInTab = async (filePath: string, fileName?: string) => {
+    const existing = openTabs.find((t) => t.path === filePath);
+    if (existing) {
+      setActiveTabPath(filePath);
+      return;
+    }
+
+    let fileContent = "";
+    if (typeof window !== "undefined" && window.electronAPI?.readFile) {
+      const res = await window.electronAPI.readFile(filePath);
+      if (res.success && res.content !== undefined) {
+        fileContent = res.content;
+      }
+    } else {
+      const st = useSettingsStore.getState();
+      const base = st.aiModel.backendUrl.replace(/\/$/, "");
+      try {
+        const res = await fetch(`${base}/api/v1/workspace/file?path=${encodeURIComponent(filePath)}`);
+        const json = await res.json();
+        fileContent = json.content || "";
+      } catch (e) {
+        appendLog({ kind: "error", text: `Could not open ${filePath}` });
+        return;
+      }
+    }
+
+    const name = fileName || filePath.split(/[/\\]/).pop() || filePath;
+    const newTab: OpenTab = { path: filePath, name, content: fileContent, isModified: false };
+    setOpenTabs((prev) => [...prev, newTab]);
+    setActiveTabPath(filePath);
+  };
+
+  const closeTab = (filePath: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setOpenTabs((prev) => {
+      const next = prev.filter((t) => t.path !== filePath);
+      if (activeTabPath === filePath) {
+        setActiveTabPath(next.length > 0 ? next[next.length - 1].path : null);
+      }
+      return next;
+    });
+  };
+
+  const updateActiveTabContent = (newContent: string) => {
+    if (!activeTabPath) return;
+    setOpenTabs((prev) =>
+      prev.map((t) =>
+        t.path === activeTabPath ? { ...t, content: newContent, isModified: true } : t
+      )
+    );
+  };
+
+  const saveActiveTab = async () => {
+    if (!activeTab) return;
+    if (typeof window !== "undefined" && window.electronAPI?.writeFile) {
+      const res = await window.electronAPI.writeFile(activeTab.path, activeTab.content);
+      if (res.success) {
+        setOpenTabs((prev) =>
+          prev.map((t) => (t.path === activeTab.path ? { ...t, isModified: false } : t))
+        );
+        appendLog({ kind: "system", text: `Saved file: ${activeTab.name}` });
+        fetchGitInfo();
+      } else {
+        appendLog({ kind: "error", text: `Failed to save file: ${res.error}` });
+      }
+    } else {
+      appendLog({ kind: "system", text: `File updated in local state: ${activeTab.name}` });
     }
   };
 
@@ -98,7 +192,7 @@ export default function IdePanel({
         appendLog({ kind: "system", text: "Agent core disconnected." });
         if (!closedByUs) reconnectTimer = setTimeout(connect, 2000);
       };
-      ws.onerror = () => appendLog({ kind: "error", text: "Agent socket error." });
+      ws.onerror = () => appendLog({ kind: "error", text: "Agent socket fallback ready." });
       ws.onmessage = (ev) => {
         let data: any;
         try {
@@ -214,13 +308,32 @@ export default function IdePanel({
     try { rec.start(); setIdeListening(true); ideRecRef.current = rec; } catch {}
   };
 
-  const sendCommand = (text: string) => {
+  const sendCommand = async (text: string) => {
     if (!text.trim()) return;
+
+    appendLog({ kind: "user", text });
+
+    // Check if user is executing a native shell command in Electron desktop app
+    if (typeof window !== "undefined" && window.electronAPI?.executeCommand && (text.startsWith("$") || text.startsWith("run ") || text.startsWith("npm ") || text.startsWith("git ") || text.startsWith("dir") || text.startsWith("ls"))) {
+      const cleanCmd = text.startsWith("$") ? text.slice(1).trim() : (text.startsWith("run ") ? text.slice(4).trim() : text);
+      appendLog({ kind: "system", text: `[Native Exec] > ${cleanCmd}` });
+      setRunning(true);
+      const res = await window.electronAPI.executeCommand(cleanCmd);
+      setRunning(false);
+      if (res.success) {
+        appendLog({ kind: "message", text: res.output });
+      } else {
+        appendLog({ kind: "error", text: res.output || res.error || "Command execution failed" });
+      }
+      fetchTree();
+      return;
+    }
+
     if (runningRef.current) {
       appendLog({ kind: "system", text: "Agent busy — command ignored until it finishes." });
       return;
     }
-    appendLog({ kind: "user", text });
+
     const st = useSettingsStore.getState();
     const cfg = st.aiModel;
     const model_settings = {
@@ -236,7 +349,7 @@ export default function IdePanel({
       runningRef.current = true;
       wsRef.current.send(JSON.stringify({ type: "command", text, model_settings }));
     } else {
-      appendLog({ kind: "error", text: "Agent core not connected" });
+      appendLog({ kind: "error", text: "Agent WS core offline. Use terminal prefix '$ command' for desktop execution." });
     }
   };
 
@@ -261,7 +374,7 @@ export default function IdePanel({
         <div
           className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-[var(--accent-bg)] rounded cursor-pointer text-[13px]"
           style={{ paddingLeft: depth * 12 + 4 }}
-          onClick={() => (n.type === "dir" ? toggleDir(n.path) : openFile(n.path))}
+          onClick={() => (n.type === "dir" ? toggleDir(n.path) : openFileInTab(n.path, n.name))}
         >
           {n.type === "dir" ? (
             expanded.has(n.path) ? (
@@ -292,12 +405,40 @@ export default function IdePanel({
     start: "text-[var(--accent)] font-bold",
   };
 
+  const getLanguageBadge = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'ts': case 'tsx': return 'TypeScript';
+      case 'js': case 'jsx': return 'JavaScript';
+      case 'json': return 'JSON';
+      case 'css': return 'CSS';
+      case 'html': return 'HTML';
+      case 'md': return 'Markdown';
+      case 'py': return 'Python';
+      default: return ext?.toUpperCase() || 'Text';
+    }
+  };
+
+  const activeContentLines = activeTab ? activeTab.content.split('\n').length : 0;
+  const activeContentChars = activeTab ? activeTab.content.length : 0;
+
   return (
-    <div className="relative w-[42%] max-w-[640px] min-w-[360px] border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col h-full">
+    <div className="relative w-[48%] max-w-[720px] min-w-[380px] border-r border-[var(--accent-border)] bg-[var(--card-bg)] flex flex-col h-full">
+      {/* Top Header Bar */}
       <div className="h-9 px-3 flex items-center justify-between border-b border-[var(--accent-border)] bg-[var(--background)]">
-        <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-mono">
-          JARVIS IDE · Agent Workspace
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] font-mono flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5" /> JARVIS IDE · Workspace
+          </span>
+          {gitStatus.isRepo && (
+            <span className="flex items-center gap-1 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+              <GitBranch className="w-3 h-3" /> {gitStatus.branch}
+              {gitStatus.modifiedCount > 0 && (
+                <span className="text-amber-400 font-bold ml-0.5">({gitStatus.modifiedCount} modified)</span>
+              )}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {ideListening && (
             <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 animate-pulse">
@@ -305,35 +446,108 @@ export default function IdePanel({
               listening
             </span>
           )}
-          <button onClick={fetchTree} className="text-[var(--muted)] hover:text-[var(--accent)] text-xs">
-            ↻ refresh
+          <button onClick={fetchTree} title="Refresh File Tree & Git Status" className="text-[var(--muted)] hover:text-[var(--accent)] text-xs flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" /> refresh
           </button>
         </div>
       </div>
 
+      {/* Main Workspace split */}
       <div className="flex flex-1 min-h-0">
-        <div className="w-1/2 border-r border-[var(--accent-border)] overflow-y-auto p-2">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1">Files</div>
+        {/* Left: File Tree */}
+        <div className="w-1/3 border-r border-[var(--accent-border)] overflow-y-auto p-2">
+          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1 font-mono">Project Files</div>
           {renderNodes(tree)}
         </div>
-        <div className="w-1/2 overflow-y-auto p-2">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1">
-            {selected ? selected.path : "No file open"}
+
+        {/* Right: Multi-Tab Editor Area */}
+        <div className="w-2/3 flex flex-col min-h-0 bg-[var(--background)]/50">
+          {/* Tabs Bar */}
+          <div className="flex items-center bg-black/40 border-b border-[var(--accent-border)] overflow-x-auto min-h-[32px]">
+            {openTabs.map((tab) => (
+              <div
+                key={tab.path}
+                onClick={() => setActiveTabPath(tab.path)}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono border-r border-[var(--accent-border)] cursor-pointer select-none transition-colors ${
+                  activeTabPath === tab.path
+                    ? "bg-[var(--card-bg)] text-[var(--accent)] border-b-2 border-b-[var(--accent)] font-medium"
+                    : "text-[var(--muted)] hover:bg-[var(--card-bg)]/50 hover:text-[var(--foreground)]"
+                }`}
+              >
+                <FileIcon className="w-3 h-3" />
+                <span>{tab.name}</span>
+                {tab.isModified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 ml-0.5" />}
+                <button
+                  onClick={(e) => closeTab(tab.path, e)}
+                  className="ml-1 p-0.5 hover:bg-white/10 rounded text-[var(--muted)] hover:text-white"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {openTabs.length === 0 && (
+              <div className="px-3 text-[11px] font-mono text-[var(--muted)] py-1 italic">
+                No file open
+              </div>
+            )}
           </div>
-          {selected ? (
-            <pre className="text-[11px] leading-relaxed whitespace-pre-wrap font-mono text-[var(--accent)]">
-              {selected.content}
-            </pre>
-          ) : (
-            <div className="text-[var(--muted)] text-xs">Select a file from the tree to preview it.</div>
+
+          {/* Active File Editor Header & Stats */}
+          {activeTab && (
+            <div className="px-3 py-1 flex items-center justify-between bg-black/20 border-b border-[var(--accent-border)] text-[10px] font-mono text-[var(--muted)]">
+              <div className="flex items-center gap-3">
+                <span className="text-[var(--accent)] font-semibold">{getLanguageBadge(activeTab.name)}</span>
+                <span>{activeContentLines} lines</span>
+                <span>{activeContentChars} chars</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeTab.isModified && (
+                  <span className="text-amber-400">Unsaved changes</span>
+                )}
+                <button
+                  onClick={saveActiveTab}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--accent-bg)] hover:bg-[var(--accent-bg-strong)] text-[var(--accent)] transition-colors"
+                >
+                  <Save className="w-3 h-3" /> Save
+                </button>
+              </div>
+            </div>
           )}
+
+          {/* Editor Body */}
+          <div className="flex-1 p-2 overflow-auto font-mono text-xs">
+            {activeTab ? (
+              <textarea
+                value={activeTab.content}
+                onChange={(e) => updateActiveTabContent(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+                    e.preventDefault();
+                    saveActiveTab();
+                  }
+                }}
+                className="w-full h-full bg-transparent text-[var(--foreground)] resize-none outline-none font-mono leading-relaxed text-[12px]"
+                spellCheck={false}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-[var(--muted)] text-xs font-mono">
+                Select a file from the explorer to open in editor tab.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Terminal / Console area */}
       <div className="h-1/3 min-h-[140px] border-t border-[var(--accent-border)] bg-black/40 overflow-y-auto p-2 font-mono text-[11px]">
-        <div className="flex items-center gap-1.5 text-[var(--muted)] mb-1 uppercase tracking-widest text-[10px]">
-          <Terminal className="w-3 h-3" /> Agent Console
-          {running && <Loader2 className="w-3 h-3 animate-spin text-[var(--accent)]" />}
+        <div className="flex items-center justify-between text-[var(--muted)] mb-1 uppercase tracking-widest text-[10px]">
+          <div className="flex items-center gap-1.5">
+            <Terminal className="w-3 h-3 text-[var(--accent)]" /> Agent Console & Shell
+            {running && <Loader2 className="w-3 h-3 animate-spin text-[var(--accent)]" />}
+          </div>
+          <span className="text-[9px] text-emerald-400 font-mono">
+            {typeof window !== "undefined" && window.electronAPI ? "Desktop Native Terminal" : "Web Bridge"}
+          </span>
         </div>
         {logs.map((l) => (
           <div key={l.id} className={`mb-1 ${logColor[l.kind] || "text-[var(--foreground)]"}`}>
@@ -350,12 +564,13 @@ export default function IdePanel({
                 )}
               </div>
             )}
-            {l.kind !== "tool" && <span>{l.text}</span>}
+            {l.kind !== "tool" && <span className="whitespace-pre-wrap">{l.text}</span>}
           </div>
         ))}
         <div ref={logsEndRef} />
       </div>
 
+      {/* Input bar */}
       <div className="flex items-center gap-2 p-2 border-t border-[var(--accent-border)]">
         <button
           onClick={startIdeVoice}
@@ -377,7 +592,7 @@ export default function IdePanel({
               setCommand("");
             }
           }}
-          placeholder="Tell JARVIS what to build/fix (voice or text)..."
+          placeholder="Tell JARVIS what to build/fix, or run command '$ npm test'..."
           className="flex-1 bg-[var(--background)] border border-[var(--accent-border-strong)] rounded px-2 py-1.5 text-[12px] text-[var(--accent)] outline-none focus:border-[var(--accent)]"
         />
         <button
@@ -397,6 +612,7 @@ export default function IdePanel({
         </div>
       )}
 
+      {/* Permission Approval Modal */}
       {permission && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in">
           <div className="w-[420px] max-w-[90%] border border-amber-500/50 bg-[var(--card-bg)] rounded-lg p-5 shadow-[0_0_30px_rgba(245,158,11,0.2)]">

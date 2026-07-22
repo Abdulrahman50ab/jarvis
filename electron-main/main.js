@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 
 let mainWindow;
 
@@ -173,6 +174,35 @@ ipcMain.handle('dialog-open-file', async () => {
     ]
   });
   return result;
+});
+
+ipcMain.handle('execute-command', async (event, commandStr, customCwd) => {
+  return new Promise((resolve) => {
+    const cwd = customCwd || process.cwd();
+    exec(commandStr, { cwd, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      if (error) {
+        resolve({ success: false, output: stderr || stdout || error.message, error: error.message });
+      } else {
+        resolve({ success: true, output: stdout || 'Command executed successfully.' });
+      }
+    });
+  });
+});
+
+ipcMain.handle('git-status', async (event, targetDir) => {
+  return new Promise((resolve) => {
+    const cwd = targetDir || process.cwd();
+    exec('git branch --show-current && git status --porcelain', { cwd }, (error, stdout) => {
+      if (error) {
+        resolve({ success: false, isRepo: false });
+      } else {
+        const lines = stdout.split('\n').filter(Boolean);
+        const branch = lines[0] || 'main';
+        const modifiedCount = lines.length > 1 ? lines.length - 1 : 0;
+        resolve({ success: true, isRepo: true, branch, modifiedCount, statusRaw: stdout });
+      }
+    });
+  });
 });
 
 app.whenReady().then(() => {

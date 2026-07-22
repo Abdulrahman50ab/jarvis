@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFolderTree: (dirPath) => ipcRenderer.invoke('read-folder-tree', dirPath),
   openFolder: () => ipcRenderer.invoke('dialog-open-folder'),
   openFile: () => ipcRenderer.invoke('dialog-open-file'),
+  executeCommand: (command, cwd) => ipcRenderer.invoke('execute-command', command, cwd),
+  getGitStatus: (dirPath) => ipcRenderer.invoke('git-status', dirPath),
 });
