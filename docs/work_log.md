@@ -127,6 +127,19 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
   - Purged `.vercel` configuration and created an isolated, dedicated Vercel project: `jarvis-workspace`.
   - Deployed JARVIS to its new independent production URL: [`https://jarvis-workspace-two.vercel.app`](https://jarvis-workspace-two.vercel.app).
   - Pushed release tag `v1.0.0` to GitHub with automated installer generation.
+- **Task 12**: Restored full multilingual voice catalog in Settings Modal and enhanced speech synthesis fallback ([`SettingsModal.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/settings/SettingsModal.tsx), [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx)).
+- **Root Cause & Rationale**:
+  - In Electron or desktop Chromium environments without Google Chrome cloud speech APIs, `window.speechSynthesis.getVoices()` only returns locally installed Windows SAPI voices (which on English-UK Windows installations only returned 3 voices: `Microsoft George`, `Microsoft Hazel`, and `Microsoft Susan`).
+  - The voice select dropdown was dynamically populated solely from `getVoices()`, hiding the full standard voice catalog (US English, Indian English, Arabic, French, Spanish, German, Japanese, Chinese, Studio Natural, Samantha, Daniel, etc.).
+- **Changes Applied**:
+  - In [`website/src/components/settings/SettingsModal.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/settings/SettingsModal.tsx):
+    - Defined `STANDARD_VOICE_LIST` catalog spanning global Google, Microsoft, Apple, and Studio voices.
+    - Initialized `voices` state with `STANDARD_VOICE_LIST` to eliminate blank/truncated initial renders.
+    - Merged system-detected voices with `STANDARD_VOICE_LIST` using `Array.from(new Set([...sysVoices, ...STANDARD_VOICE_LIST]))`.
+    - Enhanced `testVoice()` with resilient multi-tier fallback (exact match -> name substring -> language prefix -> English -> default voice).
+  - In [`website/src/components/JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx):
+    - Synchronized `speakText` voice resolution to use the same multi-tier matching and fallback mechanism.
+  - Verified compilation: `npm run build:website` passed with 0 errors and `npm run test:smoke` passed with exit code 0.
 
 ---
 

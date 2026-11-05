@@ -497,21 +497,75 @@ function ModelSection() {
   );
 }
 
+const STANDARD_VOICE_LIST = [
+  "Google US English",
+  "Google UK English Female",
+  "Google UK English Male",
+  "Microsoft David - English (United States)",
+  "Microsoft Zira - English (United States)",
+  "Microsoft Mark - English (United States)",
+  "Microsoft George - English (United Kingdom)",
+  "Microsoft Susan - English (United Kingdom)",
+  "Microsoft Hazel - English (United Kingdom)",
+  "Microsoft Ravi - English (India)",
+  "Microsoft Heera - English (India)",
+  "Microsoft Asma - Arabic (Saudi Arabia)",
+  "Microsoft Hoda - Arabic (Egypt)",
+  "Microsoft Paul - French (France)",
+  "Microsoft Julie - French (France)",
+  "Microsoft Helena - Spanish (Spain)",
+  "Microsoft Laura - Spanish (Spain)",
+  "Microsoft Hedda - German (Germany)",
+  "Microsoft Stefan - German (Germany)",
+  "Microsoft Haruka - Japanese (Japan)",
+  "Microsoft Ichiro - Japanese (Japan)",
+  "Microsoft Huihui - Chinese (Simplified)",
+  "Microsoft Yaoyao - Chinese (Simplified)",
+  "Microsoft Kangkang - Chinese (Simplified)",
+  "Google Español",
+  "Google Français",
+  "Google Deutsch",
+  "Google Italiano",
+  "Google 日本語",
+  "Google 한국의",
+  "Google 普通话 (中国大陆)",
+  "Google हिन्दी",
+  "Natural - Studio English",
+  "Samantha",
+  "Daniel",
+  "Karen",
+  "Alex",
+];
+
 function VoiceSection() {
   const settings = useSettingsStore();
-  const [voices, setVoices] = useState<string[]>([]);
+  const [voices, setVoices] = useState<string[]>(STANDARD_VOICE_LIST);
 
   useEffect(() => {
-    const load = () => setVoices(window.speechSynthesis?.getVoices().map((voice) => voice.name) || []);
+    const load = () => {
+      const sysVoices = (window.speechSynthesis?.getVoices() || []).map((voice) => voice.name);
+      const combined = Array.from(new Set([...sysVoices, ...STANDARD_VOICE_LIST]));
+      setVoices(combined);
+    };
     load();
     window.speechSynthesis?.addEventListener("voiceschanged", load);
     return () => window.speechSynthesis?.removeEventListener("voiceschanged", load);
   }, []);
 
   const testVoice = () => {
-    const utterance = new SpeechSynthesisUtterance("JARVIS voice systems are online.");
-    const voice = window.speechSynthesis.getVoices().find((item) => item.name === settings.voice.voice);
-    if (voice) utterance.voice = voice;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance("JARVIS voice systems are online and fully operational.");
+    const available = window.speechSynthesis.getVoices();
+    if (available.length > 0) {
+      const target = settings.voice.voice.toLowerCase();
+      const voice =
+        available.find((item) => item.name === settings.voice.voice) ||
+        available.find((item) => item.name.toLowerCase().includes(target) || target.includes(item.name.toLowerCase())) ||
+        available.find((item) => item.lang.toLowerCase().startsWith(settings.voice.language.toLowerCase().split("-")[0])) ||
+        available.find((item) => item.lang.toLowerCase().startsWith("en")) ||
+        available[0];
+      if (voice) utterance.voice = voice;
+    }
     utterance.rate = settings.voice.rate;
     utterance.pitch = settings.voice.pitch;
     utterance.volume = settings.voice.volume;

@@ -435,10 +435,13 @@ export default function JarvisChat() {
     const selectedLanguage = getLanguage(currentSettings.voice.language);
     const speechLanguage = selectedLanguage.recognitionCode || selectedLanguage.code;
     const languagePrefix = speechLanguage.split("-")[0];
+    const targetName = currentSettings.voice.voice.toLowerCase();
     const selectedVoice =
       voices.find((voice) => voice.name === currentSettings.voice.voice) ||
-      voices.find((voice) => voice.lang.startsWith(languagePrefix)) ||
-      voices.find((voice) => voice.lang.startsWith("en"));
+      voices.find((voice) => voice.name.toLowerCase().includes(targetName) || targetName.includes(voice.name.toLowerCase())) ||
+      voices.find((voice) => voice.lang.toLowerCase().startsWith(languagePrefix.toLowerCase())) ||
+      voices.find((voice) => voice.lang.toLowerCase().startsWith("en")) ||
+      voices[0];
 
     if (selectedVoice) utterance.voice = selectedVoice;
     utterance.lang = speechLanguage;
