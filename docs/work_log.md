@@ -118,6 +118,15 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
   - Implemented GitHub Actions CI workflow in [`.github/workflows/ci.yml`](file:///e:/Abdulrahman/jarvis/.github/workflows/ci.yml) with automated build verification, smoke tests, and Windows `.exe` release generation on tags (`v*`).
   - Authored comprehensive documentation in [`docs/features/ci-cd-pipeline.md`](file:///e:/Abdulrahman/jarvis/docs/features/ci-cd-pipeline.md).
   - Tested and verified: `npm run test:smoke` passed with exit code 0.
+- **Task 11**: Production deployment on Vercel and GitHub Release v1.0.0 pipeline execution.
+- **Root Cause & Rationale**:
+  - The public landing page required live production hosting on Vercel with automatic domain aliasing.
+  - The desktop installer needed automated publishing to GitHub Releases (`v1.0.0`) with auto-update metadata (`latest.yml`, blockmaps).
+- **Changes Applied**:
+  - Deployed Next.js website to Vercel production under account `code-with-abdul` (`dpl_HNQCkMSbaY5wWZFzoT8rp7WaNE79`).
+  - Successfully mapped to live production domains: [`https://flowvoice.abaixo.online`](https://flowvoice.abaixo.online) and [`https://website-tfsejdptw-code-with-abdul.vercel.app`](https://website-tfsejdptw-code-with-abdul.vercel.app).
+  - Configured `electron-builder` with GitHub repository and publish target (`Abdulrahman50ab/jarvis`), compiling `JARVIS Assistant Setup 1.0.0.exe` (77MB), blockmaps, and `latest.yml`.
+  - Created and pushed release tag `v1.0.0` to GitHub to trigger automated release publishing via GitHub Actions.
 
 ---
 
