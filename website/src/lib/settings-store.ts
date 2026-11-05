@@ -230,7 +230,7 @@ const defaultSettings: SettingsData = {
   
   // Utilities
   lastUpdated: Date.now(),
-  version: '1.0.0',
+  version: '1.0.1',
 };
 
 export const useSettingsStore = create<SettingsState>()(

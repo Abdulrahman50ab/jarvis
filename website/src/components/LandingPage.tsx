@@ -71,7 +71,7 @@ export default function LandingPage({ onOpenWebPreview }: LandingPageProps) {
       <aside aria-label="Announcement" className="border-b border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 text-center text-xs font-medium text-[var(--foreground)]">
         <div className="mx-auto flex max-w-7xl items-center justify-center gap-2">
           <span className="inline-flex items-center rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
-            v1.0.0 Release
+            v1.0.1 Release
           </span>
           <span>JARVIS Desktop is now available for Windows, macOS, and Linux.</span>
           <a

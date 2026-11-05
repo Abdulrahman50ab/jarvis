@@ -1,6 +1,6 @@
 {
   "name": "jarvis-assistant",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "JARVIS Assistant - AI chat and voice companion",
   "main": "main.js",
   "repository": {

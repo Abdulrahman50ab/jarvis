@@ -140,6 +140,16 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
   - In [`website/src/components/JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx):
     - Synchronized `speakText` voice resolution to use the same multi-tier matching and fallback mechanism.
   - Verified compilation: `npm run build:website` passed with 0 errors and `npm run test:smoke` passed with exit code 0.
+- **Task 13**: Version bump to v1.0.1, NSIS installer production packaging, and installation on laptop ([`package.json`](file:///e:/Abdulrahman/jarvis/package.json), [`electron-main/package.json`](file:///e:/Abdulrahman/jarvis/electron-main/package.json), [`main.js`](file:///e:/Abdulrahman/jarvis/electron-main/main.js)).
+- **Root Cause & Rationale**:
+  - The user requested building the new version containing the restored voice catalog and installing it directly on their laptop.
+  - Updated window icon reference from SVG to native PNG for Windows GDI compatibility.
+- **Changes Applied**:
+  - Bumped monorepo and package versions to `1.0.1` in [`package.json`](file:///e:/Abdulrahman/jarvis/package.json), [`electron-main/package.json`](file:///e:/Abdulrahman/jarvis/electron-main/package.json), [`website/package.json`](file:///e:/Abdulrahman/jarvis/website/package.json), [`settings-store.ts`](file:///e:/Abdulrahman/jarvis/website/src/lib/settings-store.ts), and [`LandingPage.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/LandingPage.tsx).
+  - Updated native window icon in [`electron-main/main.js`](file:///e:/Abdulrahman/jarvis/electron-main/main.js) to `icons/jarvis.png`.
+  - Executed production installer package (`npm run package-win`) generating `electron-main/dist/JARVIS Assistant Setup 1.0.1.exe` (77 MB).
+  - Executed automated silent installation (`/S`) targeting `$env:LOCALAPPDATA\Programs\JARVIS Assistant`.
+  - Launched the freshly installed application directly on the laptop. Verified live process execution.
 
 ---
 

@@ -736,7 +736,7 @@ function createMainWindow(startUrl) {
     minHeight: 600,
     title: 'JARVIS Assistant',
     backgroundColor: '#ffffff',
-    icon: path.join(__dirname, 'icons', 'jarvis.svg'),
+    icon: path.join(__dirname, 'icons', 'jarvis.png'),
     show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
