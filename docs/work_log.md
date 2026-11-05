@@ -53,6 +53,13 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
   - Authored root [`package.json`](file:///e:/Abdulrahman/jarvis/package.json) defining standard monorepo scripts (`dev`, `dev:web`, `dev:electron`, `build`, `build:website`, `build:electron`, `package-win`, `start`, `start:electron`, `lint`).
   - Directly proxies lifecycle commands into `website/` or `electron-main/` using `--prefix`.
   - Tested and verified execution of `npm run build` and `npm run dev` directly from the root directory.
+- **Task 6**: Removed active provider status card and pill from sidebar and header in [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx).
+- **Root Cause & Rationale**: The UI displayed an intrusive active model provider indicator ("Groq / openai/gpt-oss-20b") directly above "Settings and credentials" in the sidebar and in the desktop header, cluttering the chrome and exposing internal provider details on the main view.
+- **Changes Applied**:
+  - Removed the sidebar provider card located above "Settings and credentials".
+  - Removed the redundant header provider status pill.
+  - Retained provider and model configuration inside the Settings Modal under "Connections" and "Model".
+  - Verified compilation: `next build` and Electron `build:website` completed with code 0.
 
 ---
 

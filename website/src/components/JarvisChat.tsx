@@ -913,14 +913,6 @@ export default function JarvisChat() {
               <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">Secure API keys, automatic provider detection, and local models.</p>
             </a>
           )}
-          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-3">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[var(--success)] shadow-[0_0_12px_var(--success)]" />
-              <span className="text-xs font-medium text-[var(--foreground-soft)]">{providerLabel}</span>
-              <span className="ml-auto text-[10px] uppercase tracking-wider text-[var(--muted)]">Active</span>
-            </div>
-            <p className="mt-2 truncate text-[11px] text-[var(--muted)]">{settings.aiModel.model}</p>
-          </div>
           <button
             type="button"
             onClick={() => setShowSettings(true)}
@@ -964,10 +956,6 @@ export default function JarvisChat() {
                 Desktop app
               </a>
             )}
-            <div className="hidden max-w-52 items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2 md:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-              <span className="truncate text-xs text-[var(--muted-strong)]">{providerLabel} · {settings.aiModel.model}</span>
-            </div>
             <label className="relative">
               <Globe2 className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--accent)]" />
               <select
