@@ -19,12 +19,14 @@ import {
   Send,
   Settings,
   Square,
+  Trash2,
   X,
 } from "lucide-react";
 import SettingsModal from "@/components/settings/SettingsModal";
 import JarvisLogo from "@/components/JarvisLogo";
 import { DESKTOP_APP_DOWNLOAD_URL } from "@/lib/desktop-app";
 import { romanizeUrduText } from "@/lib/roman-urdu";
+import { useSessionStore } from "@/lib/session-store";
 import { useSettingsStore } from "@/lib/settings-store";
 
 interface Message {
@@ -311,6 +313,7 @@ function CopyMessageButton({ content }: { content: string }) {
 
 export default function JarvisChat() {
   const settings = useSettingsStore();
+  const sessionStore = useSessionStore();
   const initialLanguage = getLanguage(settings.voice.language);
   const [language, setLanguage] = useState(initialLanguage.code);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -340,6 +343,15 @@ export default function JarvisChat() {
   const handleSendRef = useRef<(text?: string) => void>(() => undefined);
 
   const activeLanguage = useMemo(() => getLanguage(language), [language]);
+
+  useEffect(() => {
+    const active =
+      sessionStore.sessions.find((s) => s.id === sessionStore.activeSessionId) ||
+      sessionStore.sessions[0];
+    if (active) {
+      setMessages(active.messages || []);
+    }
+  }, [sessionStore.activeSessionId]);
 
   useEffect(() => {
     const selected = getLanguage(settings.voice.language);
@@ -481,6 +493,7 @@ export default function JarvisChat() {
       const assistantIndex = requestMessages.length;
       const requestId = ++requestIdRef.current;
       setMessages([...requestMessages, { role: "assistant", content: "", createdAt: Date.now() }]);
+      sessionStore.saveActiveMessages(requestMessages);
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -509,13 +522,15 @@ export default function JarvisChat() {
 
         if (!accumulated.trim()) {
           accumulated = "I received an empty response. Please try again.";
-          setMessages((current) => {
-            if (requestIdRef.current !== requestId) return current;
-            const next = [...current];
-            next[assistantIndex] = { ...next[assistantIndex], role: "assistant", content: accumulated };
-            return next;
-          });
         }
+        const finalized = [...requestMessages, { role: "assistant" as const, content: accumulated, createdAt: Date.now() }];
+        setMessages((current) => {
+          if (requestIdRef.current !== requestId) return current;
+          const next = [...current];
+          next[assistantIndex] = { ...next[assistantIndex], role: "assistant", content: accumulated };
+          return next;
+        });
+        sessionStore.saveActiveMessages(finalized);
         if (requestIdRef.current === requestId) speakText(accumulated);
       } catch (error) {
         const wasAborted = error instanceof DOMException && error.name === "AbortError";
@@ -523,12 +538,14 @@ export default function JarvisChat() {
           ? accumulated || "Response stopped."
           : `I could not connect to the AI service. ${error instanceof Error ? error.message : "Please try again."}`;
 
+        const finalError = [...requestMessages, { role: "assistant" as const, content: errorMessage, createdAt: Date.now() }];
         setMessages((current) => {
           if (requestIdRef.current !== requestId) return current;
           const next = [...current];
           next[assistantIndex] = { ...next[assistantIndex], role: "assistant", content: errorMessage };
           return next;
         });
+        sessionStore.saveActiveMessages(finalError);
         if (!wasAborted && requestIdRef.current === requestId) {
           setNotice("Connection problem. Please try again or check the server configuration.");
         }
@@ -765,11 +782,35 @@ export default function JarvisChat() {
     setIsLoading(false);
     window.speechSynthesis?.cancel();
     setIsSpeaking(false);
-    setMessages([]);
-    setInput("");
     setNotice("");
+    setInput("");
+    const newSessionId = sessionStore.createSession();
+    const newSession = sessionStore.sessions.find((s) => s.id === newSessionId);
+    setMessages(newSession?.messages || []);
     window.setTimeout(() => inputRef.current?.focus(), 0);
-  }, [stopGeneration, stopListening]);
+  }, [stopGeneration, stopListening, sessionStore]);
+
+  const handleSwitchSession = useCallback(
+    (sessionId: string) => {
+      if (sessionId === sessionStore.activeSessionId) return;
+      requestIdRef.current += 1;
+      stopGeneration();
+      stopListening(true);
+      abortControllerRef.current = null;
+      isLoadingRef.current = false;
+      setIsLoading(false);
+      window.speechSynthesis?.cancel();
+      setIsSpeaking(false);
+      setNotice("");
+      setInput("");
+      sessionStore.switchSession(sessionId);
+      const target = sessionStore.sessions.find((s) => s.id === sessionId);
+      setMessages(target?.messages || []);
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    },
+    [stopGeneration, stopListening, sessionStore],
+  );
 
   const changeLanguage = (nextLanguage: string) => {
     const selected = getLanguage(nextLanguage);
@@ -817,10 +858,15 @@ export default function JarvisChat() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [startNewChat]);
 
-  const firstUserMessage = messages.find((message) => message.role === "user")?.content;
-  const conversationTitle = firstUserMessage
-    ? `${firstUserMessage.slice(0, 34)}${firstUserMessage.length > 34 ? "…" : ""}`
-    : "New conversation";
+  const activeSession =
+    sessionStore.sessions.find((s) => s.id === sessionStore.activeSessionId) ||
+    sessionStore.sessions[0];
+  const conversationTitle =
+    activeSession?.title && activeSession.title !== "New conversation"
+      ? activeSession.title
+      : messages.find((message) => message.role === "user")?.content
+        ? `${messages.find((message) => message.role === "user")!.content.slice(0, 34)}${messages.find((message) => message.role === "user")!.content.length > 34 ? "…" : ""}`
+        : "New conversation";
   const providerLabel = PROVIDER_LABELS[settings.aiModel.provider] || "AI provider";
 
   return (
@@ -872,29 +918,66 @@ export default function JarvisChat() {
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3" aria-label="Conversations">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3" aria-label="Conversations">
           <div className="mb-2 flex items-center justify-between px-2 pt-3">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Current session</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+              Conversations ({sessionStore.sessions.length})
+            </span>
             <History className="h-3.5 w-3.5 text-[var(--muted)]" />
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              inputRef.current?.focus();
-              if (window.innerWidth < 1024) setSidebarOpen(false);
-            }}
-            className="w-full rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-3 text-left"
-          >
-            <div className="flex items-start gap-3">
-              <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-[var(--foreground)]">{conversationTitle}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {messages.length ? messages.length + " messages" : "Ready when you are"}
-                </p>
+          {sessionStore.sessions.map((session) => {
+            const isSelected = session.id === sessionStore.activeSessionId;
+            return (
+              <div
+                key={session.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleSwitchSession(session.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSwitchSession(session.id);
+                  }
+                }}
+                className={`group relative flex w-full cursor-pointer items-start gap-3 rounded-xl p-3 text-left transition select-none ${
+                  isSelected
+                    ? "border border-[var(--accent-border-strong)] bg-[var(--accent-bg)] shadow-sm"
+                    : "border border-transparent hover:border-[var(--card-border)] hover:bg-[var(--hover-bg)]"
+                }`}
+              >
+                <MessageSquare
+                  className={`mt-0.5 h-4 w-4 shrink-0 transition ${
+                    isSelected ? "text-[var(--accent)]" : "text-[var(--muted)] group-hover:text-[var(--foreground)]"
+                  }`}
+                />
+                <div className="min-w-0 flex-1 pr-6">
+                  <p
+                    className={`truncate text-sm font-medium ${
+                      isSelected ? "text-[var(--foreground)]" : "text-[var(--muted-strong)] group-hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    {session.title || "New conversation"}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    {session.messages?.length ? `${session.messages.length} messages` : "Ready when you are"}
+                  </p>
+                </div>
+                {sessionStore.sessions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      sessionStore.deleteSession(session.id);
+                    }}
+                    className="absolute right-2 top-3 grid h-7 w-7 place-items-center rounded-lg text-[var(--muted)] opacity-0 transition hover:bg-[var(--hover-bg)] hover:text-[var(--danger)] group-hover:opacity-100"
+                    aria-label={`Delete conversation ${session.title}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-            </div>
-          </button>
+            );
+          })}
         </nav>
 
         <div className="space-y-2 border-t border-[var(--sidebar-border)] p-3">

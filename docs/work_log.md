@@ -60,6 +60,19 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
   - Removed the redundant header provider status pill.
   - Retained provider and model configuration inside the Settings Modal under "Connections" and "Model".
   - Verified compilation: `next build` and Electron `build:website` completed with code 0.
+- **Task 7**: Multi-session persistent chat history in sidebar and session store ([`session-store.ts`](file:///e:/Abdulrahman/jarvis/website/src/lib/session-store.ts), [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx)).
+- **Root Cause & Rationale**: Previous chat messages were stored solely in component-level `useState<Message[]>`. Starting a new chat or clicking "New conversation" erased earlier discussions, and the sidebar displayed only a static single session card.
+- **Changes Applied**:
+  - Created [`website/src/lib/session-store.ts`](file:///e:/Abdulrahman/jarvis/website/src/lib/session-store.ts) with Zustand `persist` (`localStorage` key: `jarvis_chat_sessions_v2`).
+  - Implemented multi-session data model: `ChatSession` (id, title, timestamps, messages array), with actions `createSession`, `switchSession`, `deleteSession`, `saveActiveMessages`, and `setSessionTitle`.
+  - Refactored [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx):
+    - Synchronized active messages with the session store.
+    - Updated `handleSend` to persist prompts, streaming chunks, finalized text, and error states directly into the active session.
+    - Updated `startNewChat` to generate a fresh session without deleting past sessions.
+    - Added `handleSwitchSession` with generation/listener cancellation.
+    - Replaced the single placeholder with a scrollable list of conversations with active borders, message counts, and `Trash2` deletion.
+  - Created technical specification [`docs/features/chat-sessions.md`](file:///e:/Abdulrahman/jarvis/docs/features/chat-sessions.md).
+  - Verified compilation: `npm run build` and `npm run build:website` passed with exit code 0.
 
 ---
 
