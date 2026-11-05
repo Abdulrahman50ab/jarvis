@@ -7,30 +7,79 @@ function createPng(width, height) {
   const scanlineLength = width * bytesPerPixel + 1;
   const rawData = Buffer.alloc(scanlineLength * height);
 
+  const insideRoundedRect = (x, y, inset, radius) => {
+    const left = inset;
+    const top = inset;
+    const right = width - inset - 1;
+    const bottom = height - inset - 1;
+    if (x < left || x > right || y < top || y > bottom) return false;
+    const nearestX = Math.min(Math.max(x, left + radius), right - radius);
+    const nearestY = Math.min(Math.max(y, top + radius), bottom - radius);
+    const dx = x - nearestX;
+    const dy = y - nearestY;
+    return dx * dx + dy * dy <= radius * radius;
+  };
+
   for (let y = 0; y < height; y++) {
     const offset = y * scanlineLength;
     rawData[offset] = 0; // Filter type None
     for (let x = 0; x < width; x++) {
       const pxOffset = offset + 1 + x * bytesPerPixel;
       
-      // Calculate cool glowing cyan gradient
       const cx = x - width / 2;
       const cy = y - height / 2;
       const dist = Math.sqrt(cx * cx + cy * cy);
-      
-      if (dist < width / 2 - 4) {
-        // High-tech Cyan / Teal
-        const glow = Math.max(0, 1 - dist / (width / 2));
-        rawData[pxOffset] = Math.floor(0 * glow);     // R
-        rawData[pxOffset + 1] = Math.floor(255 * glow); // G
-        rawData[pxOffset + 2] = Math.floor(204 * glow); // B
-        rawData[pxOffset + 3] = 255;                   // Alpha
-      } else {
+
+      if (!insideRoundedRect(x, y, 4, 42)) {
         rawData[pxOffset] = 0;
         rawData[pxOffset + 1] = 0;
         rawData[pxOffset + 2] = 0;
         rawData[pxOffset + 3] = 0;
+        continue;
       }
+
+      // White card base with a subtle warm tint toward the bottom.
+      const shade = 255 - Math.floor((y / height) * 7);
+      let red = 255;
+      let green = shade;
+      let blue = shade;
+      const alpha = 255;
+
+      // Strong red rounded border.
+      if (!insideRoundedRect(x, y, 12, 35)) {
+        red = 220;
+        green = 38;
+        blue = 38;
+      }
+
+      // Assistant orbit and core.
+      if (Math.abs(dist - 91) < 3) {
+        red = 248;
+        green = 113;
+        blue = 113;
+      }
+      if (dist < 61) {
+        const coreShade = Math.max(0, Math.min(1, (cy + 61) / 122));
+        red = 239 - Math.floor(coreShade * 19);
+        green = 68 - Math.floor(coreShade * 30);
+        blue = 68 - Math.floor(coreShade * 30);
+      }
+
+      // A clean white "J" mark inside the red assistant core.
+      const jTop = x >= 104 && x <= 151 && y >= 96 && y <= 107;
+      const jStem = x >= 138 && x <= 149 && y >= 101 && y <= 143;
+      const jArcRadius = Math.sqrt((x - 118) ** 2 + (y - 140) ** 2);
+      const jArc = Math.abs(jArcRadius - 25) <= 5 && y >= 139 && x <= 143;
+      if (jTop || jStem || jArc) {
+        red = 255;
+        green = 255;
+        blue = 255;
+      }
+
+      rawData[pxOffset] = red;
+      rawData[pxOffset + 1] = green;
+      rawData[pxOffset + 2] = blue;
+      rawData[pxOffset + 3] = alpha;
     }
   }
 

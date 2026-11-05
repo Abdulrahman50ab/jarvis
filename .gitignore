@@ -2,5 +2,11 @@ node_modules/
 .next/
 out/
 dist/
-.env.local
+.env*
+!.env.example
+*.tsbuildinfo
+*.pfx
+*.p12
+*.pem
+*.key
 *.log

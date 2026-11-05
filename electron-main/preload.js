@@ -1,15 +1,55 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const CHAT_EVENT_CHANNEL = 'jarvis:chat:event';
+let activeRequestId = null;
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  readFile: (path) => ipcRenderer.invoke('read-file', path),
-  writeFile: (path, content) => ipcRenderer.invoke('write-file', path, content),
-  createFile: (path, content) => ipcRenderer.invoke('create-file', path, content),
-  deleteFile: (path) => ipcRenderer.invoke('delete-file', path),
-  createFolder: (path) => ipcRenderer.invoke('create-folder', path),
-  listFiles: (dirPath) => ipcRenderer.invoke('list-files', dirPath),
-  readFolderTree: (dirPath) => ipcRenderer.invoke('read-folder-tree', dirPath),
-  openFolder: () => ipcRenderer.invoke('dialog-open-folder'),
-  openFile: () => ipcRenderer.invoke('dialog-open-file'),
-  executeCommand: (command, cwd) => ipcRenderer.invoke('execute-command', command, cwd),
-  getGitStatus: (dirPath) => ipcRenderer.invoke('git-status', dirPath),
+  platform: process.platform,
+
+  getApiKeyStatus: (provider) => ipcRenderer.invoke('jarvis:keys:status', provider),
+  setApiKey: (apiKey) => ipcRenderer.invoke('jarvis:keys:set', apiKey),
+  removeApiKey: (provider) => ipcRenderer.invoke('jarvis:keys:remove', provider),
+  transcribeAudio: (audioBytes, mimeType, filename, language) =>
+    ipcRenderer.invoke('jarvis:audio:transcribe', {
+      audioBytes,
+      mimeType,
+      filename,
+      language,
+    }),
+
+  streamChat: async (payload, onEvent) => {
+    if (activeRequestId) {
+      await ipcRenderer.invoke('jarvis:chat:cancel', activeRequestId);
+    }
+
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    activeRequestId = requestId;
+    const listener = (_event, chatEvent) => {
+      if (chatEvent?.requestId !== requestId) return;
+      if (typeof onEvent === 'function') {
+        try {
+          onEvent(chatEvent);
+        } catch {
+          // Renderer callback errors must not break the IPC listener.
+        }
+      }
+    };
+
+    ipcRenderer.on(CHAT_EVENT_CHANNEL, listener);
+    try {
+      return await ipcRenderer.invoke('jarvis:chat:start', {
+        requestId,
+        messages: payload?.messages,
+        modelSettings: payload?.modelSettings,
+      });
+    } finally {
+      ipcRenderer.removeListener(CHAT_EVENT_CHANNEL, listener);
+      if (activeRequestId === requestId) activeRequestId = null;
+    }
+  },
+
+  cancelChat: async () => {
+    if (!activeRequestId) return { success: false };
+    return ipcRenderer.invoke('jarvis:chat:cancel', activeRequestId);
+  },
 });

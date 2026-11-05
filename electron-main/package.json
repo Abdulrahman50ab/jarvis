@@ -1,32 +1,43 @@
 {
-  "name": "jarvis-ide",
+  "name": "jarvis-assistant",
   "version": "1.0.0",
-  "description": "JARVIS IDE - Next-Gen AI Development Environment",
+  "description": "JARVIS Assistant - AI chat and voice companion",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "npm run build --prefix ../frontend",
-    "package-win": "electron-builder --win",
-    "package-mac": "electron-builder --mac",
-    "package-linux": "electron-builder --linux",
-    "package-all": "electron-builder -wml"
+    "build": "npm run build:website",
+    "build:website": "node build-website.js",
+    "build:web": "npm run build:website",
+    "package-win": "npm run build:website && electron-builder --win",
+    "package-mac": "npm run build:website && electron-builder --mac",
+    "package-linux": "npm run build:website && electron-builder --linux",
+    "package-all": "npm run build:website && electron-builder -wml"
   },
   "devDependencies": {
     "electron": "^30.0.0",
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.jarvis.ide",
-    "productName": "JARVIS IDE",
+    "appId": "com.jarvis.assistant",
+    "productName": "JARVIS Assistant",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
       "preload.js",
-      "icons/**/*",
-      "../frontend/out/**/*"
+      "offline.html",
+      "icons/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../website/out",
+        "to": "website",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "win": {
       "target": "nsis",
