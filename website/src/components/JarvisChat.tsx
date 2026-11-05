@@ -1158,7 +1158,7 @@ export default function JarvisChat() {
           </div>
         </main>
 
-        <footer className="shrink-0 border-t border-[var(--card-border)] bg-[var(--glass-bg)] px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+        <footer className="shrink-0 bg-[var(--glass-bg)] px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
           <div className="mx-auto w-full max-w-4xl">
             {notice && (
               <div className="mb-2 flex items-start gap-3 rounded-xl border border-rose-500/25 bg-rose-500/5 px-3 py-2.5 text-xs leading-5 text-[var(--danger)]">
@@ -1174,7 +1174,7 @@ export default function JarvisChat() {
                 event.preventDefault();
                 void handleSend();
               }}
-              className="rounded-2xl border border-[var(--input-border)] bg-[var(--input-bg)] p-2 shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition focus-within:border-[var(--accent-border-strong)] focus-within:shadow-[0_18px_70px_var(--accent-glow)]"
+              className="rounded-2xl border border-[var(--input-border)] bg-[var(--input-bg)] p-2 shadow-sm transition focus-within:border-zinc-400 dark:focus-within:border-zinc-500 focus-within:shadow-md"
             >
               <textarea
                 ref={inputRef}

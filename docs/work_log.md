@@ -93,6 +93,15 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
     - Purged legacy cyan overrides in [`layout.tsx`](file:///e:/Abdulrahman/jarvis/website/src/app/layout.tsx), [`settings-store.ts`](file:///e:/Abdulrahman/jarvis/website/src/lib/settings-store.ts), and [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx), locking the default brand accent to JARVIS Crimson Red (`#dc2626`) and Editorial Light mode.
   - Authored comprehensive architectural spec [`docs/features/landing-page.md`](file:///e:/Abdulrahman/jarvis/docs/features/landing-page.md).
   - Verified compilation: `npm run build` and `npm run build:website` compiled with 0 errors (exit code 0).
+- **Task 9**: Removed red radius border on chat input container and eliminated divider line above the text field ([`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx), [`globals.css`](file:///e:/Abdulrahman/jarvis/website/src/app/globals.css)).
+- **Root Cause & Rationale**:
+  - The chat input `<form>` had a red outline and intense red focus glow caused by `--input-border` being set to `rgba(185, 28, 28, 0.2)` and `focus-within:border-[var(--accent-border-strong)] focus-within:shadow-[0_18px_70px_var(--accent-glow)]`.
+  - The footer container had `border-t border-[var(--card-border)]` which cast a red-tinted horizontal divider line directly above the input card.
+- **Changes Applied**:
+  - Removed `border-t border-[var(--card-border)]` from `<footer>` in [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx), cleanly eliminating the horizontal line above the input area.
+  - Normalized border design tokens in [`globals.css`](file:///e:/Abdulrahman/jarvis/website/src/app/globals.css) to neutral zinc tones (`--input-border: #e4e4e7` light, `#27272a` dark; `--card-border: rgba(0, 0, 0, 0.08)` light, `rgba(255, 255, 255, 0.08)` dark), removing unwanted red tints from non-accent surfaces.
+  - Replaced the input `<form>` styling in [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx) with clean neutral focus states: `border border-[var(--input-border)] focus-within:border-zinc-400 dark:focus-within:border-zinc-500 focus-within:shadow-md`, completely removing the red radius border and red glow.
+  - Verified compilation: `npm run build` and `npm run build:website` both passed with 0 errors (exit code 0).
 
 ---
 
