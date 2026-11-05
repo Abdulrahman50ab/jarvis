@@ -724,7 +724,7 @@ function createMainWindow(startUrl) {
     title: 'JARVIS Assistant',
     backgroundColor: '#ffffff',
     icon: path.join(__dirname, 'icons', 'jarvis.svg'),
-    show: false,
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -735,7 +735,7 @@ function createMainWindow(startUrl) {
     },
   });
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.focus();
   const windowWebContentsId = mainWindow.webContents.id;
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
@@ -757,7 +757,7 @@ function createMainWindow(startUrl) {
   loadPromise.catch(() => mainWindow?.loadFile(getOfflinePagePath()));
 
   if (!app.isPackaged && (process.env.OPEN_DEVTOOLS === 'true' || process.argv.includes('--devtools'))) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    mainWindow.webContents.openDevTools({ mode: 'right' });
   }
 
   if (process.argv.includes('--test-smoke')) {

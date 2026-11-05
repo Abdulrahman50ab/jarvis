@@ -19,12 +19,11 @@ function runElectron() {
 
   const extraArgs = process.argv.slice(2).filter((arg) => arg !== '--rebuild');
 
-  const child = spawn(electronBin, ['.', '--devtools', ...extraArgs], {
+  const child = spawn(electronBin, ['.', ...extraArgs], {
     cwd: __dirname,
     stdio: 'inherit',
     env: {
       ...process.env,
-      OPEN_DEVTOOLS: 'true',
     },
     shell: process.platform === 'win32',
   });
