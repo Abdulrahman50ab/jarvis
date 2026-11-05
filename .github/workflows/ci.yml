@@ -1,0 +1,87 @@
+name: JARVIS Continuous Integration & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-test:
+    name: Build, Lint & Smoke Test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+            electron-main/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts || npm install
+          npm --prefix website ci --ignore-scripts || npm --prefix website install
+          npm --prefix electron-main ci || npm --prefix electron-main install
+
+      - name: Lint Next.js website
+        run: npm run lint
+
+      - name: Build Next.js website
+        run: npm run build
+
+      - name: Build Electron static export (build:website)
+        run: npm run build:website
+
+      - name: Run Electron automated smoke test
+        run: npm run test:smoke
+
+  package-release:
+    name: Package Windows Desktop Installer
+    needs: validate-and-test
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+            electron-main/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts || npm install
+          npm --prefix website ci --ignore-scripts || npm --prefix website install
+          npm --prefix electron-main ci || npm --prefix electron-main install
+
+      - name: Build Windows installer (.exe)
+        run: npm run package-win
+
+      - name: Publish GitHub Release Artifacts
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: electron-main/dist/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

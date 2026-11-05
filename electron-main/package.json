@@ -4,8 +4,10 @@
   "description": "JARVIS Assistant - AI chat and voice companion",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
+    "start": "node dev-runner.js",
+    "dev": "node dev-runner.js",
+    "test": "node smoke-test.js",
+    "test:smoke": "node smoke-test.js",
     "build": "npm run build:website",
     "build:website": "node build-website.js",
     "build:web": "npm run build:website",

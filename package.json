@@ -6,14 +6,18 @@
   "scripts": {
     "dev": "npm --prefix website run dev",
     "dev:web": "npm --prefix website run dev",
-    "dev:electron": "npm --prefix electron-main run dev",
+    "dev:electron": "node electron-main/dev-runner.js",
+    "test": "npm run build && npm run build:website && npm run test:smoke",
+    "test:electron": "node electron-main/dev-runner.js",
+    "test:electron:rebuild": "node electron-main/dev-runner.js --rebuild",
+    "test:smoke": "node electron-main/smoke-test.js",
     "build": "npm --prefix website run build",
     "build:website": "npm --prefix electron-main run build:website",
     "build:electron": "npm --prefix electron-main run package-win",
     "package-win": "npm --prefix electron-main run package-win",
     "start": "npm --prefix website run start",
     "start:web": "npm --prefix website run start",
-    "start:electron": "npm --prefix electron-main run start",
+    "start:electron": "node electron-main/dev-runner.js",
     "lint": "npm --prefix website run lint"
   }
 }

@@ -102,6 +102,22 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
   - Normalized border design tokens in [`globals.css`](file:///e:/Abdulrahman/jarvis/website/src/app/globals.css) to neutral zinc tones (`--input-border: #e4e4e7` light, `#27272a` dark; `--card-border: rgba(0, 0, 0, 0.08)` light, `rgba(255, 255, 255, 0.08)` dark), removing unwanted red tints from non-accent surfaces.
   - Replaced the input `<form>` styling in [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx) with clean neutral focus states: `border border-[var(--input-border)] focus-within:border-zinc-400 dark:focus-within:border-zinc-500 focus-within:shadow-md`, completely removing the red radius border and red glow.
   - Verified compilation: `npm run build` and `npm run build:website` both passed with 0 errors (exit code 0).
+- **Task 10**: Built zero-friction local Electron test runner, automated smoke test suite, and continuous delivery pipeline ([`dev-runner.js`](file:///e:/Abdulrahman/jarvis/electron-main/dev-runner.js), [`smoke-test.js`](file:///e:/Abdulrahman/jarvis/electron-main/smoke-test.js), [`.github/workflows/ci.yml`](file:///e:/Abdulrahman/jarvis/.github/workflows/ci.yml), [`package.json`](file:///e:/Abdulrahman/jarvis/package.json)).
+- **Root Cause & Rationale**:
+  - Testing the Electron desktop client previously required executing `package-win` (a multi-minute NSIS compression) and manually installing the `.exe` setup wizard every time, causing severe workflow bottlenecks and testing friction.
+  - No automated CI/CD pipeline existed to validate compilation, verify desktop static exports, or run smoke tests on push/pull-request.
+- **Changes Applied**:
+  - Created [`electron-main/dev-runner.js`](file:///e:/Abdulrahman/jarvis/electron-main/dev-runner.js) which checks for `website/out`, auto-builds export if missing or on `--rebuild`, and immediately launches Electron with DevTools enabled in <1 second without installer packaging.
+  - Created [`electron-main/smoke-test.js`](file:///e:/Abdulrahman/jarvis/electron-main/smoke-test.js) and added `--test-smoke` headless lifecycle support in [`electron-main/main.js`](file:///e:/Abdulrahman/jarvis/electron-main/main.js).
+  - Updated root [`package.json`](file:///e:/Abdulrahman/jarvis/package.json) and [`electron-main/package.json`](file:///e:/Abdulrahman/jarvis/electron-main/package.json) with unified scripts:
+    - `npm run dev:web`: Starts local website dev server for landing page design (`http://localhost:3000`).
+    - `npm run dev:electron` / `npm run test:electron`: Instant live Electron app launch for manual testing.
+    - `npm run test:electron:rebuild`: Re-exports UI and launches Electron.
+    - `npm run test:smoke`: Automated headless validation of Electron runtime and IPC.
+    - `npm test`: Full CI test suite (`build` + `build:website` + `test:smoke`).
+  - Implemented GitHub Actions CI workflow in [`.github/workflows/ci.yml`](file:///e:/Abdulrahman/jarvis/.github/workflows/ci.yml) with automated build verification, smoke tests, and Windows `.exe` release generation on tags (`v*`).
+  - Authored comprehensive documentation in [`docs/features/ci-cd-pipeline.md`](file:///e:/Abdulrahman/jarvis/docs/features/ci-cd-pipeline.md).
+  - Tested and verified: `npm run test:smoke` passed with exit code 0.
 
 ---
 

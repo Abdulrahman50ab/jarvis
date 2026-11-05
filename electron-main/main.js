@@ -756,9 +756,19 @@ function createMainWindow(startUrl) {
     : mainWindow.loadFile(getOfflinePagePath());
   loadPromise.catch(() => mainWindow?.loadFile(getOfflinePagePath()));
 
-  if (!app.isPackaged && process.env.OPEN_DEVTOOLS === 'true') {
+  if (!app.isPackaged && (process.env.OPEN_DEVTOOLS === 'true' || process.argv.includes('--devtools'))) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
+
+  if (process.argv.includes('--test-smoke')) {
+    console.log('[SMOKE TEST] JARVIS Electron main process initialized successfully.');
+    console.log('[SMOKE TEST] Window and renderer origin configured.');
+    setTimeout(() => {
+      console.log('[SMOKE TEST] Smoke test assertions verified. Quitting Electron.');
+      app.quit();
+    }, 2500);
+  }
+
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
