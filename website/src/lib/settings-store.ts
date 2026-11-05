@@ -480,9 +480,17 @@ export const useSettingsStore = create<SettingsState>()(
           persistedAIModel.provider = defaultAIModelSettings.provider;
           persistedAIModel.model = defaultAIModelSettings.model;
         }
+        const legacyCyanColors = new Set([
+          '#00f0ff', '#06b6d4', '#22d3ee', '#0891b2', '#00ffff', '#38bdf8', '#0284c7'
+        ]);
+        let resolvedAccent = persisted.accentColor || defaultSettings.accentColor;
+        if (legacyCyanColors.has(resolvedAccent.toLowerCase())) {
+          resolvedAccent = '#dc2626';
+        }
         return {
           ...currentState,
           ...persisted,
+          accentColor: resolvedAccent,
           voice: { ...currentState.voice, ...persisted.voice },
           aiModel: persistedAIModel,
           privacy: { ...currentState.privacy, ...persisted.privacy },

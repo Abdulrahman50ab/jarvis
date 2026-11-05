@@ -18,9 +18,12 @@ const themeBootstrap = `
       if (mode === 'system') {
         mode = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       }
-      if (/^#[0-9a-f]{6}$/i.test(state.accentColor || '')) {
-        root.style.setProperty('--accent', state.accentColor);
+      var accent = state.accentColor || '#dc2626';
+      var legacyCyans = ['#00f0ff', '#06b6d4', '#22d3ee', '#0891b2', '#00ffff', '#38bdf8', '#0284c7'];
+      if (legacyCyans.indexOf(accent.toLowerCase()) !== -1 || !/^#[0-9a-f]{6}$/i.test(accent)) {
+        accent = '#dc2626';
       }
+      root.style.setProperty('--accent', accent);
     } catch (_) {}
     root.classList.remove('light', 'dark');
     root.classList.add(mode === 'light' ? 'light' : 'dark');

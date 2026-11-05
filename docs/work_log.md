@@ -73,6 +73,26 @@ JARVIS is a hybrid desktop and web AI companion application built with Next.js 1
     - Replaced the single placeholder with a scrollable list of conversations with active borders, message counts, and `Trash2` deletion.
   - Created technical specification [`docs/features/chat-sessions.md`](file:///e:/Abdulrahman/jarvis/docs/features/chat-sessions.md).
   - Verified compilation: `npm run build` and `npm run build:website` passed with exit code 0.
+- **Task 8**: Transformed public website into a product landing page and synchronized theme/color tokens with Electron desktop ([`LandingPage.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/LandingPage.tsx), [`page.tsx`](file:///e:/Abdulrahman/jarvis/website/src/app/page.tsx), [`layout.tsx`](file:///e:/Abdulrahman/jarvis/website/src/app/layout.tsx), [`settings-store.ts`](file:///e:/Abdulrahman/jarvis/website/src/lib/settings-store.ts)).
+- **Root Cause & Rationale**:
+  - The public website previously booted directly into the raw chat application rather than acting as a product landing page where visitors learn about JARVIS, view feature specifications, and download the desktop client.
+  - Stale `localStorage` entries from legacy frontends caused browsers to load outdated dark theme modes and neon cyan accents (`#00f0ff`, `#06b6d4`), falling out of sync with the clean, editorial porcelain and Crimson Red (`#dc2626`) palette used in Electron.
+- **Changes Applied**:
+  - Built high-craft Product Landing Page [`website/src/components/LandingPage.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/LandingPage.tsx) featuring:
+    - Release announcement bar and sticky navigation header.
+    - Hero section with direct Windows x64 download CTA and GitHub release links.
+    - Simulated pixel-perfect desktop app frame demonstrating code-switched Roman Urdu/English conversations and offline Ollama engine.
+    - Bento grid detailing 6 key pillars (multilingual voice, OS DPAPI safeStorage, local models, multi-session threads, global hotkeys, anti-AI craft).
+    - Architecture comparison matrix (Desktop Native vs Generic Cloud Web Chat).
+    - Multi-platform download hub (Windows, macOS, Linux).
+    - Interactive FAQ accordion and brand footer.
+  - Updated [`website/src/app/page.tsx`](file:///e:/Abdulrahman/jarvis/website/src/app/page.tsx) with runtime environment detection:
+    - Inside Electron (`window.electronAPI`): automatically mounts full desktop `<JarvisChat />` workspace.
+    - In standard web browser: mounts `<LandingPage />` by default, with optional "Web Demo" preview toggle.
+  - Synchronized and sanitized color tokens:
+    - Purged legacy cyan overrides in [`layout.tsx`](file:///e:/Abdulrahman/jarvis/website/src/app/layout.tsx), [`settings-store.ts`](file:///e:/Abdulrahman/jarvis/website/src/lib/settings-store.ts), and [`JarvisChat.tsx`](file:///e:/Abdulrahman/jarvis/website/src/components/JarvisChat.tsx), locking the default brand accent to JARVIS Crimson Red (`#dc2626`) and Editorial Light mode.
+  - Authored comprehensive architectural spec [`docs/features/landing-page.md`](file:///e:/Abdulrahman/jarvis/docs/features/landing-page.md).
+  - Verified compilation: `npm run build` and `npm run build:website` compiled with 0 errors (exit code 0).
 
 ---
 

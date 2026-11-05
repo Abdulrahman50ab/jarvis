@@ -376,8 +376,12 @@ export default function JarvisChat() {
     const media = window.matchMedia("(prefers-color-scheme: light)");
     media.addEventListener("change", applyTheme);
 
-    if (/^#[0-9a-f]{6}$/i.test(settings.accentColor)) {
-      root.style.setProperty("--accent", settings.accentColor);
+    const legacyCyanColors = new Set([
+      "#00f0ff", "#06b6d4", "#22d3ee", "#0891b2", "#00ffff", "#38bdf8", "#0284c7"
+    ]);
+    const validAccent = legacyCyanColors.has(settings.accentColor?.toLowerCase()) ? "#dc2626" : settings.accentColor;
+    if (/^#[0-9a-f]{6}$/i.test(validAccent)) {
+      root.style.setProperty("--accent", validAccent);
     }
     const font = settings.fontFamily === "monospace"
       ? "ui-monospace, SFMono-Regular, Consolas, monospace"
