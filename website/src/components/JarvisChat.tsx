@@ -332,6 +332,7 @@ export default function JarvisChat() {
   const recordingChunksRef = useRef<Blob[]>([]);
   const discardRecordingRef = useRef(false);
   const recordingTimeoutRef = useRef<number | null>(null);
+  const silenceTimerRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
   const isLoadingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -438,6 +439,10 @@ export default function JarvisChat() {
     isListeningRef.current = false;
     setIsListening(false);
 
+    if (silenceTimerRef.current) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     if (recordingTimeoutRef.current) {
       window.clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
@@ -550,7 +555,7 @@ export default function JarvisChat() {
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = settings.voice.continuousListening;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = activeLanguage.recognitionCode || activeLanguage.code;
 
@@ -560,38 +565,59 @@ export default function JarvisChat() {
       setNotice("");
     };
     recognition.onend = () => {
+      if (isListeningRef.current && !isLoadingRef.current) {
+        try {
+          recognition.start();
+          return;
+        } catch {
+          // Restart failed
+        }
+      }
       isListeningRef.current = false;
       setIsListening(false);
     };
     recognition.onerror = (event: any) => {
+      if (event.error === "aborted" || event.error === "no-speech") return;
       isListeningRef.current = false;
       setIsListening(false);
-      if (event.error !== "aborted" && event.error !== "no-speech") {
-        setNotice(`Microphone error: ${event.error || "speech recognition failed"}.`);
-      }
+      setNotice(`Microphone error: ${event.error || "speech recognition failed"}.`);
     };
     recognition.onresult = (event: any) => {
-      let interimText = "";
-      let finalText = "";
+      let fullTranscript = "";
+      let hasFinal = false;
 
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const transcript = result?.[0]?.transcript || "";
-        if (result.isFinal) finalText += transcript;
-        else interimText += transcript;
+      for (let i = 0; i < event.results.length; i += 1) {
+        const item = event.results[i];
+        if (item?.[0]?.transcript) {
+          fullTranscript += item[0].transcript;
+          if (item.isFinal) {
+            hasFinal = true;
+          }
+        }
       }
 
-      const visibleText = activeLanguage.code === "ur-Latn-PK"
-        ? romanizeUrduText(finalText || interimText)
-        : (finalText || interimText).trim();
-      if (visibleText) setInput(visibleText);
+      const trimmed = fullTranscript.trim();
+      if (!trimmed) return;
 
-      if (finalText.trim() && !isLoadingRef.current) {
-        const finalTranscript = activeLanguage.code === "ur-Latn-PK"
-          ? romanizeUrduText(finalText)
-          : finalText.trim();
-        stopListening();
-        handleSendRef.current(finalTranscript);
+      const formatted = activeLanguage.code === "ur-Latn-PK"
+        ? romanizeUrduText(trimmed)
+        : trimmed;
+
+      // Live real-time typing into the chat field as the user speaks
+      setInput(formatted);
+
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      if (hasFinal && !isLoadingRef.current) {
+        silenceTimerRef.current = window.setTimeout(() => {
+          if (isListeningRef.current && !isLoadingRef.current) {
+            stopListening(false);
+            handleSendRef.current(formatted);
+          }
+        }, 1500);
       }
     };
 
@@ -599,6 +625,10 @@ export default function JarvisChat() {
     return () => {
       isListeningRef.current = false;
       recognition.onend = null;
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       try {
         recognition.abort();
       } catch {
@@ -606,7 +636,7 @@ export default function JarvisChat() {
       }
       recognitionRef.current = null;
     };
-  }, [activeLanguage.code, activeLanguage.recognitionCode, settings.voice.continuousListening, stopListening]);
+  }, [activeLanguage.code, activeLanguage.recognitionCode, stopListening]);
 
   useEffect(() => {
     return () => {
@@ -688,6 +718,26 @@ export default function JarvisChat() {
       return;
     }
 
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const stream = await navigator.mediaDevices?.getUserMedia({ audio: true });
+        stream?.getTracks().forEach((track) => track.stop());
+        window.speechSynthesis?.cancel();
+        setIsSpeaking(false);
+        setNotice("");
+        recognitionRef.current?.start();
+        return;
+      } catch (error) {
+        setNotice(
+          error instanceof Error
+            ? `Microphone access failed: ${error.message}`
+            : "Please allow microphone access and try again.",
+        );
+        return;
+      }
+    }
+
     if (window.electronAPI?.transcribeAudio && typeof MediaRecorder !== "undefined") {
       try {
         window.speechSynthesis?.cancel();
@@ -703,25 +753,7 @@ export default function JarvisChat() {
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setNotice("Speech recognition is not supported here. Please use Chrome or Edge.");
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices?.getUserMedia({ audio: true });
-      stream?.getTracks().forEach((track) => track.stop());
-      window.speechSynthesis?.cancel();
-      setIsSpeaking(false);
-      recognitionRef.current?.start();
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? `Microphone access failed: ${error.message}`
-          : "Please allow microphone access and try again.",
-      );
-    }
+    setNotice("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
   }
 
   const startNewChat = useCallback(() => {
@@ -743,6 +775,22 @@ export default function JarvisChat() {
     const selected = getLanguage(nextLanguage);
     setLanguage(selected.code);
     settings.setVoiceProperty("language", selected.code);
+    if (recognitionRef.current) {
+      const recognitionLang = selected.recognitionCode || selected.code;
+      recognitionRef.current.lang = recognitionLang;
+      if (isListeningRef.current) {
+        try {
+          recognitionRef.current.stop();
+          window.setTimeout(() => {
+            if (isListeningRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch {}
+            }
+          }, 100);
+        } catch {}
+      }
+    }
   };
 
   useEffect(() => {

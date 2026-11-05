@@ -16,7 +16,7 @@ export function Toggle({
 }) {
   return (
     <div className="flex items-center justify-between gap-5 py-3.5">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 pr-2">
         <div className="text-sm font-medium text-[var(--foreground)]">{label}</div>
         {description && <p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">{description}</p>}
       </div>
@@ -27,18 +27,18 @@ export function Toggle({
         aria-label={label}
         onClick={() => onChange(!checked)}
         className={clsx(
-          "relative h-6 w-11 shrink-0 rounded-full border transition-colors",
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 active:scale-95",
           checked
-            ? "border-[var(--accent-border-strong)] bg-[var(--accent)]"
-            : "border-[var(--input-border)] bg-[var(--toggle-off)]",
+            ? "bg-[var(--accent)]"
+            : "bg-[var(--toggle-off)]",
         )}
       >
         <span
+          aria-hidden="true"
           className={clsx(
-            "absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform",
-            checked ? "translate-x-5" : "translate-x-0.5",
+            "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+            checked ? "translate-x-5" : "translate-x-0",
           )}
-          style={{ width: 18, height: 18 }}
         />
       </button>
     </div>

@@ -150,8 +150,8 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
         aria-labelledby="settings-title"
         className="animate-slide-up flex h-[100dvh] w-full overflow-hidden border-[var(--card-border)] bg-[var(--panel-bg)] shadow-2xl sm:h-[min(820px,92vh)] sm:max-w-6xl sm:rounded-3xl sm:border"
       >
-        <aside className="hidden w-64 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-4 md:flex md:flex-col">
-          <div className="mb-6 flex items-center gap-3 px-2 pt-1">
+        <aside className="hidden w-64 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] p-4 md:flex md:flex-col md:min-h-0">
+          <div className="mb-4 flex shrink-0 items-center gap-3 px-2 pt-1">
             <JarvisLogo className="h-10 w-10 shadow-[0_6px_20px_var(--accent-glow)]" />
             <div>
               <p className="text-sm font-semibold tracking-[0.16em] text-[var(--foreground)]">JARVIS</p>
@@ -159,7 +159,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
             </div>
           </div>
 
-          <nav className="space-y-1" aria-label="Settings sections">
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1" aria-label="Settings sections">
             {SECTIONS.map((section) => {
               const Icon = section.icon;
               const selected = active === section.id;
@@ -181,7 +181,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
             })}
           </nav>
 
-          <div className="mt-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs leading-5 text-[var(--muted)]">
+          <div className="mt-3 shrink-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs leading-5 text-[var(--muted)]">
             Settings save automatically on this device.
           </div>
         </aside>
@@ -226,7 +226,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
           </div>
 
           <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="mx-auto max-w-3xl space-y-4">
+            <div className="mx-auto max-w-3xl space-y-4 pb-8">
               {active === "connections" && <ConnectionsSection />}
               {active === "model" && <ModelSection />}
               {active === "voice" && <VoiceSection />}

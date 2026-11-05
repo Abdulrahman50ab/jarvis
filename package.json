@@ -1,0 +1,19 @@
+{
+  "name": "jarvis-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JARVIS AI Workspace - Monorepo root",
+  "scripts": {
+    "dev": "npm --prefix website run dev",
+    "dev:web": "npm --prefix website run dev",
+    "dev:electron": "npm --prefix electron-main run dev",
+    "build": "npm --prefix website run build",
+    "build:website": "npm --prefix electron-main run build:website",
+    "build:electron": "npm --prefix electron-main run package-win",
+    "package-win": "npm --prefix electron-main run package-win",
+    "start": "npm --prefix website run start",
+    "start:web": "npm --prefix website run start",
+    "start:electron": "npm --prefix electron-main run start",
+    "lint": "npm --prefix website run lint"
+  }
+}
