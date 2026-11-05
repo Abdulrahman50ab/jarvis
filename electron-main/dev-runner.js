@@ -7,6 +7,13 @@ const indexPath = path.join(websiteOutDir, 'index.html');
 const shouldRebuild = process.argv.includes('--rebuild') || !fs.existsSync(indexPath);
 
 function runElectron() {
+  if (process.platform === 'win32') {
+    const { execSync } = require('child_process');
+    try {
+      execSync('taskkill /F /IM electron.exe 2>nul', { stdio: 'ignore' });
+    } catch (_) {}
+  }
+
   console.log('\n========================================');
   console.log(' JARVIS Desktop — Development & Testing');
   console.log('========================================');

@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "JARVIS Assistant - AI chat and voice companion",
   "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Abdulrahman50ab/jarvis.git"
+  },
   "scripts": {
     "start": "node dev-runner.js",
     "dev": "node dev-runner.js",
@@ -26,6 +30,13 @@
     "directories": {
       "output": "dist"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Abdulrahman50ab",
+        "repo": "jarvis"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",

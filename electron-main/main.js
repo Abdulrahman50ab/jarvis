@@ -10,6 +10,13 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
+app.setName('JARVIS Assistant');
+if (!app.isPackaged) {
+  const devUserData = path.join(app.getPath('appData'), 'jarvis-assistant-dev');
+  app.setPath('userData', devUserData);
+}
+app.commandLine.appendSwitch('disable-gpu-cache');
+
 const PROVIDER_CONFIGS = Object.freeze({
   groq: {
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
