@@ -2,6 +2,20 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// Load environment variables from website/.env.local if present
+try {
+  const envLocalPath = path.resolve(__dirname, '../website/.env.local');
+  if (fs.existsSync(envLocalPath)) {
+    const lines = fs.readFileSync(envLocalPath, 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+      const match = line.match(/^\s*([A-Za-z_0-9]+)\s*=\s*(.*)?\s*$/);
+      if (match && !process.env[match[1]]) {
+        process.env[match[1]] = (match[2] || '').trim().replace(/^['"]|['"]$/g, '');
+      }
+    }
+  }
+} catch (_) {}
+
 const websiteOutDir = path.resolve(__dirname, '../website/out');
 const indexPath = path.join(websiteOutDir, 'index.html');
 const shouldRebuild = process.argv.includes('--rebuild') || !fs.existsSync(indexPath);

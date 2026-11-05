@@ -597,10 +597,22 @@ export default function JarvisChat() {
       isListeningRef.current = false;
       setIsListening(false);
     };
-    recognition.onerror = (event: any) => {
+    recognition.onerror = async (event: any) => {
       if (event.error === "aborted" || event.error === "no-speech") return;
       isListeningRef.current = false;
       setIsListening(false);
+
+      if (event.error === "network") {
+        if (window.electronAPI?.transcribeAudio && typeof MediaRecorder !== "undefined") {
+          try {
+            await startDesktopRecording();
+            return;
+          } catch (_) {}
+        }
+        setNotice("Speech recognition network error: Google Speech service is unreachable. Please check your network or enter your Groq key in Settings for Whisper transcription.");
+        return;
+      }
+
       setNotice(`Microphone error: ${event.error || "speech recognition failed"}.`);
     };
     recognition.onresult = (event: any) => {
@@ -739,6 +751,24 @@ export default function JarvisChat() {
       return;
     }
 
+    // In Electron desktop app, native MediaRecorder + Whisper transcribeAudio is prioritized
+    // because Chromium's Web Speech API is blocked in Electron without Google private keys.
+    if (window.electronAPI?.transcribeAudio && typeof MediaRecorder !== "undefined") {
+      try {
+        window.speechSynthesis?.cancel();
+        setIsSpeaking(false);
+        await startDesktopRecording();
+        return;
+      } catch (error) {
+        setNotice(
+          error instanceof Error
+            ? `Microphone access failed: ${error.message}`
+            : "Please allow microphone access and try again.",
+        );
+        return;
+      }
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       try {
@@ -757,21 +787,6 @@ export default function JarvisChat() {
         );
         return;
       }
-    }
-
-    if (window.electronAPI?.transcribeAudio && typeof MediaRecorder !== "undefined") {
-      try {
-        window.speechSynthesis?.cancel();
-        setIsSpeaking(false);
-        await startDesktopRecording();
-      } catch (error) {
-        setNotice(
-          error instanceof Error
-            ? `Microphone access failed: ${error.message}`
-            : "Please allow microphone access and try again.",
-        );
-      }
-      return;
     }
 
     setNotice("Speech recognition is not supported in this browser. Please use Chrome or Edge.");

@@ -108,16 +108,22 @@ function detectApiKeyProvider(apiKey) {
 
 function getStoredApiKey(provider) {
   assertProvider(provider);
-  if (!safeStorage.isEncryptionAvailable()) return '';
-
-  const encryptedValue = readEncryptedSecrets()[provider];
-  if (typeof encryptedValue !== 'string' || !encryptedValue) return '';
-
-  try {
-    return safeStorage.decryptString(Buffer.from(encryptedValue, 'base64'));
-  } catch {
-    return '';
+  if (safeStorage.isEncryptionAvailable()) {
+    const encryptedValue = readEncryptedSecrets()[provider];
+    if (typeof encryptedValue === 'string' && encryptedValue) {
+      try {
+        const decrypted = safeStorage.decryptString(Buffer.from(encryptedValue, 'base64'));
+        if (decrypted) return decrypted;
+      } catch {
+        // Fallback to environment variables if decrypt fails
+      }
+    }
   }
+
+  const envKey = `${provider.toUpperCase()}_API_KEY`;
+  if (process.env[envKey]) return process.env[envKey].trim();
+
+  return '';
 }
 
 function storeApiKey(provider, apiKey) {
